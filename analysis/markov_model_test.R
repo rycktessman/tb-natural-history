@@ -4,8 +4,8 @@ setwd("~/GitHub/tb-natural-history")
 library(tidyverse)
 
 #load model functions and test model parameters (posterior means from main analysis)
-source("model_functions.R")
-load("params_test.Rda")
+source("R/model_functions.R")
+load("data/params_test.Rda")
 
 t_end <- 240 #run for 20 years (240 months)
 inflows <- 1 #run with inflows on (deaths re-enter the model as smear-negative subclinical TB)

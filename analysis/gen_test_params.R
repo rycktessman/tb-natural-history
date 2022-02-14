@@ -19,4 +19,4 @@ params <- list("p_m"=0.034, #smear progression (from subclinical)
                "m_ac"=0.0004 #non-TB mortality
                )
 
-save(params, file="params_test.Rda")
+save(params, file="data/params_test.Rda")
