@@ -4,69 +4,79 @@
 library(dplyr)
 library(tidyr)
 library(stringr)
-source("code/model_v3.R")
-source("code/calib_functions2.R")
 
-#define microsim specs
-runs <- 1 #number of runs per parameter set - individuals don't interact at all, so don't need multiple runs, just enough sample size
-t_end <- 60 #5 years
-n <- 50000 
-verbose <- 0
+source("code/model_functions.R")
+source("code/calib_functions.R")
+
 chain_split <- as.numeric(Sys.getenv('SLURM_ARRAY_TASK_ID')) #chain/file to open and rows to run
 print(chain_split)
-mult_expand <- 1
-RR_free <- 1
-spont_progress <- 0
-spont_prog <- 0.15 #annual probability of progression from resolved
-country <- "Cambodia"
+
+#define microsim specs
+cyc_len <- 1/52 #weekly timestep
+t_end <- 5/cyc_len #5 years
+n <- 50000 
+
+#microsim options to vary
+RR_free <- 0 #4 free RR parameters in this version
+spont_progress <- 0 #whether those who have spontaneously resolved can progress back to smear- symptom- TB
+spont_prog <- 0.15 #what probability to use if spont_progress is 1
+smear_hist_calib <- 0 #whether to include historical targets on bacillary status over time
+no_10yr_hist <- 0 #whether to include 10 year historical survival as calibration targets
+country <- "Philippines"
 start_pop <- as.numeric(Sys.getenv('start_pop')) #1=smear-/symptom-, 2=smear+/symptom-, 3=smear-/symptom+, 4=smear+/symptom+
 
-if(country=="Philippines") {
-  load("data/params_targets.Rda")
-} else if (country=="Vietnam") {
-  load("data/params_targets_vietnam.Rda")
-} else if (country=="Cambodia") {
-  load("data/params_targets_cambodia.Rda")
-} else if (country=="Nepal") {
-  load("data/params_targets_nepal.Rda")
-} else if (country=="Bangladesh") {
-  load("data/params_targets_bangladesh.Rda")
+#load files 
+load("data/params_all.Rda")
+load(paste0("data/targets_", tolower(country), ".Rda"))
+path_out <- paste0("output/", tolower(country))
+
+#file path
+if(RR_free==1) {
+  path_out <- paste0(path_out, "_rrfree")
+} 
+if(spont_progress==1) {
+  path_out <- paste0(path_out, "_spontprog")
+}
+if(smear_hist==1) {
+  path_out <- paste0(path_out, "_smearhist")
+}
+if(no_10yr_hist==1) {
+  path_out <- paste0(path_out, "_no10")
+}
+if(RR_free==0 & spont_progress==0 & smear_hist==0 & no_10yr_hist==0) {
+  path_out <- paste0(path_out, "_base")
 }
 
 #load params from file
-path_out <- "output/IMIS Nov2021 v4 cambodia RRfree/"
 params_post <- read.csv(paste0(path_out, "out_IMIS_combined", ".csv"), stringsAsFactors=F)
 params_post_unique <- unique(params_post) #no need to evaluate same param set twice
 size <- ceiling(nrow(params_post_unique)/1000) #split into 1000 parts
 index_start <- (chain_split - 1)*size + 1
 index_end <- pmin(index_start + size - 1, nrow(params_post_unique)) #last array has fewer rows
 if(index_end < index_start) {
-  print("no indices left to run - ending")
+  print("No indices left to run - ending")
   print(chain_split)
 } else {
-  print(paste0("running indices ", index_start, " through ", index_end))
+  print(paste0("Running indices ", index_start, " through ", index_end))
   print(paste("Everyone starts out in state", start_pop))
+  
   params_post_unique <- params_post_unique[index_start:index_end,]
   #parameter dependencies
   params_post_unique <- params_post_unique %>% 
     mutate(inflows=0, p_c=0, 
-           m_ac=params_fixed_prev$m_ac, i=1, i_m=1, i_s=2, i_ms=1)
-  if(mult_expand==0) {
-    params_post_unique <- params_post_unique %>% mutate(a_tx=a_m)
-  }
+           m_ac=m_ac_present[[country]])
+  
+  #implement options
   if(RR_free==0) {
     params_post_unique <- params_post_unique %>% 
       mutate(a_p_s=a_p_m, a_r_s=a_r_m)
   }
   if(spont_progress==1) {
     params_post_unique <- params_post_unique %>% 
-      mutate(p_c=1-exp(log(1-spont_prog)/12))
+      mutate(p_c=1-exp(log(1-spont_prog)*cyc_len))
   }
+  
   params_use <- params_post_unique
-  #run this to use MAP instead
-  if(FALSE) {
-    params_use <- unique(params_post_unique %>% filter(like==max(like)))
-  }
   
   #run the model runs times for t_end timesteps
   #rows are individuals, columns are timesteps, values are states - easy to transpose - see notes
@@ -85,9 +95,6 @@ if(index_end < index_start) {
       sim_ind <- data.frame("0"=rep(start_pop, n)) #everyone starts out w/ smear- symptom- TB - data.frame(rep(1,n)) if transposed
       rel_inf <- 0 #track relative infections separately
       for(t in 1:t_end) {
-        if(verbose==1) {
-          cat('\r', paste(round(t/t_end * 100), "% done", sep = " ")) # display the progress of the simulation
-        }
         curr_ind <- nat_hist_micro(sim_ind[,t], rands[(n*(t-1)+1):(n*t),], params) #use sim_pop[t,] if transposed
         sim_ind <- cbind(sim_ind, curr_ind) #rbind if transposed
         rel_inf <- c(rel_inf, micro_outcomes(params, curr_ind))

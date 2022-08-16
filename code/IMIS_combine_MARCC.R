@@ -2,18 +2,13 @@
 library(dplyr)
 library(matrixStats)
 library(lhs)
-#setwd("C:/Users/Tess/OneDrive - Johns Hopkins/TB/Natural History Modeling")
-source("code/model_v3.R")
-source("code/calib_functions2.R")
-load("data/params_targets.Rda")
 
-#info to be updated each set of calibration runs
-path_out <- "output/IMIS Nov2021 v4 nepal smearhist/"
+#update path
+path_out <- "output/philippines_base/"
 
 #find completed chains
 completed <- list.files(path=path_out, pattern="IMIS_opt_each")
 chains <- as.numeric(gsub(".*?([0-9]+).*", "\\1", completed))
-chains <- c(1:14, 16:51)
 chains <- sort(chains)
 rounds <- 12 #number of IMIS rounds
 
@@ -23,7 +18,7 @@ stats_rounds <- data.frame() #IMIS stats from each round within each chain
 out_post_chains <- data.frame() #posterior parameter sets and corresponding output from each chain
 for(i in chains) {
   print(i)
-  if(i %in% c(as.character(9999))) {
+  if(i %in% c(as.character(9999))) { #include any chains that go to 2nd to last round here
     best_params <- read.csv(paste0(path_out, "IMIS_opt_each_", i, ".csv")) %>% 
       mutate(chain=i, round=1:11)
   } else {

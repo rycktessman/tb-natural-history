@@ -1,39 +1,27 @@
-
-#Version with "country" spec added
 library(lhs)
 library(dplyr)
 library(mvtnorm)
 library(matrixStats)
 
-#setwd("C:/Users/Tess/OneDrive - Johns Hopkins/TB/Natural History Modeling")
-source("code/model_v3.R")
-source("code/calib_functions2.R")
-path_out <- "output/test/"
+source("code/model_functions.R")
+source("code/calib_functions.R")
+
 chain <- as.character(Sys.getenv('SLURM_ARRAY_TASK_ID'))
-mult_expand <- 1
+
+#calibration options
 RR_free <- 0 #4 free RR parameters in this version
 spont_progress <- 0 #whether those who have spontaneously resolved can progress back to smear- symptom- TB
-flag_symptom_dur <- 0 #don't exclude parameter sets where less than 80-90% spend >2 weeks symptomatic
+spont_prog <- 0.15 #what probability to use if spont_progress is 1
 smear_hist_calib <- 0 #whether to include historical targets on bacillary status over time
+no_10yr_hist <- 0 #whether to include 10 year historical survival as calibration targets
+flag_symptom_dur <- 0 #don't exclude parameter sets where less than 80-90% spend >2 weeks symptomatic
 country <- "Philippines"
-if(country=="Philippines") {
-  load("data/params_targets.Rda")
-} else if (country=="Vietnam") {
-  load("data/params_targets_vietnam.Rda")
-} else if (country=="Cambodia") {
-  load("data/params_targets_cambodia.Rda")
-} else if (country=="Nepal") {
-  load("data/params_targets_nepal.Rda")
-} else if (country=="Bangladesh") {
-  load("data/params_targets_bangladesh.Rda")
-}
-if(mult_expand==1) {
-  params_calib_prev <- params_calib_prev_mult
-  names_params_calib <- names_params_calib_mult
-  priors_prev_lb <- priors_prev_mult_lb
-  priors_prev_ub <- priors_prev_mult_ub
-  params_fixed_hist <- params_fixed_hist_mult
-}
+cyc_len <- 1/52 #weekly timestep
+
+#load files and implement options
+load("data/params_all.Rda")
+load(paste0("data/targets_", tolower(country), ".Rda"))
+path_out <- paste0("output/", tolower(country))
 if(RR_free==1) {
   priors_prev_lb[["a_p_s"]] <- priors_prev_lb[["a_p_m"]]
   priors_prev_ub[["a_p_s"]] <- priors_prev_ub[["a_p_m"]]
@@ -45,10 +33,12 @@ if(RR_free==1) {
   params_calib_hist <- c(params_calib_hist, 
                          "a_p_s"=params_calib_hist[["a_p_m"]],
                          "a_r_s"=params_calib_hist[["a_r_m"]])
+  path_out <- paste0(path_out, "_rrfree")
 }
 if(spont_progress==1) {
-  params_fixed_prev[["p_c"]] <- 1-exp(log(1-0.15)/12) #monthly probability corresponding to annual probability of 15%
+  params_fixed_prev[["p_c"]] <- 1-exp(log(1-spont_prog)*cyc_len) #weekly probability corresponding to annual probability of 15%
   params_fixed_hist[["p_c"]] <- params_fixed_prev[["p_c"]]
+  path_out <- paste0(path_out, "_spontprog")
 }
 if(smear_hist_calib==1) {
   #switch to using calc_like_smear_hist instead of calc_like
@@ -65,17 +55,83 @@ if(smear_hist_calib==1) {
   #griep
   targets_all[["tb_smear_4yr_3"]] <- 14
   targets_all[["alive_4yr_3"]] <- 57
+  path_out <- paste0(path_out, "_smearhist")
 }
+if(no_10yr_hist==1) {
+  #version without the 10-year mortality targets
+  calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, 
+                        prop_m_notif_smooth, pnr_params, calib_type, country) { #outputs, targets, and upper/lower confidence bounds on targets
+    if(calib_type=="prev") {
+      #prevalence survey targets proportion of infections by smear/symptom status - we have actual sample size
+      prop_m_all <- dbinom(round(tr[["prop_m_all"]]*356), size=356, prob=out[["prop_m_all"]], log=T)
+      prop_s_all <- dbinom(round(tr[["prop_s_all"]]*359), size=359, prob=out[["prop_s_all"]], log=T)
+      prop_ms <- dbinom(round(tr[["prop_ms"]]*356), size=356, prob=out[["prop_ms"]], log=T)
+      #prevalence to notification ratio: 0 to inf - gamma fits well (parameters estimated using dampack gamma_params)
+      if(country %in% c("Philippines", "Cambodia")) {
+        pnr_m_all <- dgamma(out[["pnr_m_all"]], shape=pnr_params$pnr_gamma_shape, scale=pnr_params$pnr_gamma_scale, log=T)
+        #pnr_m_all <- dgamma(tr[["pnr_m_all"]], shape=13.34858, scale=0.1741758, log=T)
+      } else if(country %in% c("Vietnam", "Nepal", "Bangladesh")) {
+        pnr_all <- dgamma(out[["pnr_all"]], shape=pnr_params$pnr_gamma_shape, scale=pnr_params$pnr_gamma_scale, log=T)
+      }
+      #untreated case fatality ratio: sizes (n) of binomial distributions established to match CIs from adjusted estimate
+      #deaths_tb <- dbinom(round(tr[["deaths_tb"]]*290), size=290, prob=out[["deaths_tb"]], log=T)
+      #use empirical distribution for the TB mortality target
+      deaths_tb <- unname(log(mort_samples[as.character(round(out[["deaths_tb"]]*1000))]))
+      #make likelihood very very small (and decreasing) if > max of all mort samples (min is 0 so no need to do this on low end)
+      deaths_tb[(is.na(deaths_tb)|deaths_tb==-Inf) & !is.na(out[["deaths_tb"]])] <- 
+        unlist(log(1/abs(round(out[(is.na(deaths_tb)|deaths_tb==-Inf) & !is.na(out[["deaths_tb"]]), 
+                                   "deaths_tb"]*1000)-max(unname(mort_samples)))/1000000)) 
+      #proportion of notifications that are smear-positive - use empirical distribution
+      prop_m_notif <- unname(log(prop_m_notif_smooth[as.character(round(out[["prop_m_notif"]]*100))]))
+      
+      if(country %in% c("Philippines", "Cambodia")) {
+        log_like_all <- data.frame("prop_m_all"=prop_m_all,
+                                   "prop_s_all"=prop_s_all,
+                                   "prop_ms"=prop_ms,
+                                   "pnr_m_all"=pnr_m_all,
+                                   "deaths_tb"=deaths_tb,
+                                   "prop_m_notif"=prop_m_notif)
+      } else if(country %in% c("Vietnam", "Nepal", "Bangladesh")) {
+        log_like_all <- data.frame("prop_m_all"=prop_m_all,
+                                   "prop_s_all"=prop_s_all,
+                                   "prop_ms"=prop_ms,
+                                   "pnr_all"=pnr_all,
+                                   "deaths_tb"=deaths_tb,
+                                   "prop_m_notif"=prop_m_notif)
+      }
+    } else if(calib_type=="hist_pos") {
+      #historical mortality targets - sizes (n) of binomial distributions established to match CIs from meta-regression
+      tb_ms_dead_5yr <- dbinom(round(tr[["tb_ms_dead_5yr"]]*220), size=220, prob=out[["tb_ms_dead_5yr"]], log=T)
+      log_like_all <- data.frame("tb_ms_dead_5yr"=tb_ms_dead_5yr)
+    } else if(calib_type=="hist_neg") {
+      #historical mortality targets - sizes (n) of binomial distributions established to match CIs from meta-regression
+      tb_s_dead_5yr <- dbinom(round(tr[["tb_s_dead_5yr"]]*325), size=325, prob=out[["tb_s_dead_5yr"]], log=T)
+      log_like_all <- data.frame("tb_s_dead_5yr"=tb_s_dead_5yr)
+    } else {
+      print("error: incorrect calibration type")
+    }
+    log_like <- rowSums(log_like_all)
+    like <- rowProds(as.matrix(exp(log_like_all)))
+    like_out <- list("like"=like, "log_like"=log_like)
+    return(like_out)
+  }
+  path_out <- paste0(path_out, "_no10")
+}
+if(RR_free==0 & spont_progress==0 & smear_hist_calib==0 & no_10yr_hist==0) {
+  path_out <- paste0(path_out, "_base")
+}
+params_fixed_prev[["m_ac"]] <- m_ac_present[[country]]
 
 #define functions and arguments needed for IMIS package
 B <- 10000 #10,000 samples per IMIS round (100,000 initially)
 B.re <- 1000 #1000 samples of the posterior
-number_k <- 12 #run 10 rounds of IMIS
+number_k <- 12 #run 11 rounds of IMIS
 D <- 0 #don't optimize first
 
-#B <- 100
+#B <- 100 #versions for testing
 #B.re <- 1000
 #number_k <- 5
+#copy of IMIS package function by Raftery & Bao with additional outputs saved
 IMIS_copy <- function(B, B.re, number_k, D) {
   B0 = B * 10
   X_all = X_k = sample.prior(B0)

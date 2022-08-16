@@ -5,7 +5,7 @@ library(dplyr)
 library(tidyr)
 library(data.table)
 
-path_out <- "output/IMIS Nov2021 v4 nepal spontprog/"
+path_out <- "output/philippines_base/"
 start_pop <- as.numeric(Sys.getenv('start_pop')) #1=smear-/symptom-, 2=smear+/symptom-, 3=smear-/symptom+, 4=smear+/symptom+
 
 rda2list <- function(file) {
