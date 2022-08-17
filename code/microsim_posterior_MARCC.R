@@ -46,6 +46,7 @@ if(no_10yr_hist==1) {
 if(RR_free==0 & spont_progress==0 & smear_hist==0 & no_10yr_hist==0) {
   path_out <- paste0(path_out, "_base")
 }
+path_out <- paste0(path_out, "/")
 
 #load params from file
 params_post <- read.csv(paste0(path_out, "out_IMIS_combined", ".csv"), stringsAsFactors=F)

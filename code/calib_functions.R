@@ -394,14 +394,18 @@ calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
 #version without the 10-year mortality targets
 #currently only works for Philippines
 calc_like_no10 <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
-                           prop_m_notif_smooth, pnr_params, calib_type) { #outputs, targets, and upper/lower confidence bounds on targets
+                           prop_m_notif_smooth, pnr_params, calib_type, country) { #outputs, targets, and upper/lower confidence bounds on targets
   if(calib_type=="prev") {
     #prevalence survey targets proportion of infections by smear/symptom status - we have actual sample size
     prop_m <- dbinom(round(tr[["prop_m"]]*prev_cases), size=prev_cases, prob=out[["prop_m"]], log=T)
     prop_s <- dbinom(round(tr[["prop_s"]]*prev_cases), size=prev_cases, prob=out[["prop_s"]], log=T)
     prop_ms <- dbinom(round(tr[["prop_ms"]]*prev_cases), size=prev_cases, prob=out[["prop_ms"]], log=T)
     #prevalence to notification ratio: 0 to inf - gamma fits well (parameters estimated using dampack gamma_params)
-    pnr_m_all <- dgamma(out[["pnr_m_all"]], shape=pnr_params$pnr_gamma_shape, scale=pnr_params$pnr_gamma_scale, log=T)
+    if(country %in% c("Philippines", "Cambodia")) {
+      pnr_m_all <- dgamma(out[["pnr_m_all"]], shape=pnr_params$pnr_gamma_shape, scale=pnr_params$pnr_gamma_scale, log=T)
+    } else if(country %in% c("Vietnam", "Nepal", "Bangladesh")) {
+      pnr_all <- dgamma(out[["pnr_all"]], shape=pnr_params$pnr_gamma_shape, scale=pnr_params$pnr_gamma_scale, log=T)
+    }
     #use empirical distribution for the TB mortality target
     deaths_tb <- unname(log(mort_samples[as.character(round(out[["deaths_tb"]]*1000))]))
     #make likelihood very very small (and decreasing) if > max of all mort samples (min is 0 so no need to do this on low end)
@@ -411,12 +415,21 @@ calc_like_no10 <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
     #proportion of notifications that are smear-positive - use empirical distribution
     prop_m_notif <- unname(log(prop_m_notif_smooth[as.character(round(out[["prop_m_notif"]]*100))]))
     
-    log_like_all <- data.frame("prop_m"=prop_m,
-                               "prop_s"=prop_s,
-                               "prop_ms"=prop_ms,
-                               "pnr_m_all"=pnr_m_all,
-                               "deaths_tb"=deaths_tb,
-                               "prop_m_notif"=prop_m_notif)
+    if(country %in% c("Philippines", "Cambodia")) {
+      log_like_all <- data.frame("prop_m"=prop_m,
+                                 "prop_s"=prop_s,
+                                 "prop_ms"=prop_ms,
+                                 "pnr_m_all"=pnr_m_all,
+                                 "deaths_tb"=deaths_tb,
+                                 "prop_m_notif"=prop_m_notif)
+    } else if(country %in% c("Vietnam", "Nepal", "Bangladesh")) {
+      log_like_all <- data.frame("prop_m"=prop_m,
+                                 "prop_s"=prop_s,
+                                 "prop_ms"=prop_ms,
+                                 "pnr_all"=pnr_all,
+                                 "deaths_tb"=deaths_tb,
+                                 "prop_m_notif"=prop_m_notif)
+    }
   } else if(calib_type=="hist_pos") {
     #historical mortality targets - sizes (n) of binomial distributions established to match CIs from meta-regression
     tb_ms_dead_5yr <- dbinom(round(tr[["tb_ms_dead_5yr"]]*220), size=220, prob=out[["tb_ms_dead_5yr"]], log=T)

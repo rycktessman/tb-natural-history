@@ -42,8 +42,10 @@ if(spont_progress==1) {
 }
 if(smear_hist_calib==1) {
   #switch to using calc_like_smear_hist instead of calc_like
-  calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, prop_m_notif_smooth, pnr_params, calib_type, country) {
-    like <- calc_like_smear_hist(out, tr, tr_lb, tr_ub, mort_samples, prop_m_notif_smooth, pnr_params, calib_type)
+  calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases, 
+                        prop_m_notif_smooth, pnr_params, calib_type, country) {
+    like <- calc_like_smear_hist(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
+                                 prop_m_notif_smooth, pnr_params, calib_type, country)
     return(like)
   }
   #sinding-larsen
@@ -59,67 +61,18 @@ if(smear_hist_calib==1) {
 }
 if(no_10yr_hist==1) {
   #version without the 10-year mortality targets
-  calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, 
+  calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
                         prop_m_notif_smooth, pnr_params, calib_type, country) { #outputs, targets, and upper/lower confidence bounds on targets
-    if(calib_type=="prev") {
-      #prevalence survey targets proportion of infections by smear/symptom status - we have actual sample size
-      prop_m_all <- dbinom(round(tr[["prop_m_all"]]*356), size=356, prob=out[["prop_m_all"]], log=T)
-      prop_s_all <- dbinom(round(tr[["prop_s_all"]]*359), size=359, prob=out[["prop_s_all"]], log=T)
-      prop_ms <- dbinom(round(tr[["prop_ms"]]*356), size=356, prob=out[["prop_ms"]], log=T)
-      #prevalence to notification ratio: 0 to inf - gamma fits well (parameters estimated using dampack gamma_params)
-      if(country %in% c("Philippines", "Cambodia")) {
-        pnr_m_all <- dgamma(out[["pnr_m_all"]], shape=pnr_params$pnr_gamma_shape, scale=pnr_params$pnr_gamma_scale, log=T)
-        #pnr_m_all <- dgamma(tr[["pnr_m_all"]], shape=13.34858, scale=0.1741758, log=T)
-      } else if(country %in% c("Vietnam", "Nepal", "Bangladesh")) {
-        pnr_all <- dgamma(out[["pnr_all"]], shape=pnr_params$pnr_gamma_shape, scale=pnr_params$pnr_gamma_scale, log=T)
-      }
-      #untreated case fatality ratio: sizes (n) of binomial distributions established to match CIs from adjusted estimate
-      #deaths_tb <- dbinom(round(tr[["deaths_tb"]]*290), size=290, prob=out[["deaths_tb"]], log=T)
-      #use empirical distribution for the TB mortality target
-      deaths_tb <- unname(log(mort_samples[as.character(round(out[["deaths_tb"]]*1000))]))
-      #make likelihood very very small (and decreasing) if > max of all mort samples (min is 0 so no need to do this on low end)
-      deaths_tb[(is.na(deaths_tb)|deaths_tb==-Inf) & !is.na(out[["deaths_tb"]])] <- 
-        unlist(log(1/abs(round(out[(is.na(deaths_tb)|deaths_tb==-Inf) & !is.na(out[["deaths_tb"]]), 
-                                   "deaths_tb"]*1000)-max(unname(mort_samples)))/1000000)) 
-      #proportion of notifications that are smear-positive - use empirical distribution
-      prop_m_notif <- unname(log(prop_m_notif_smooth[as.character(round(out[["prop_m_notif"]]*100))]))
-      
-      if(country %in% c("Philippines", "Cambodia")) {
-        log_like_all <- data.frame("prop_m_all"=prop_m_all,
-                                   "prop_s_all"=prop_s_all,
-                                   "prop_ms"=prop_ms,
-                                   "pnr_m_all"=pnr_m_all,
-                                   "deaths_tb"=deaths_tb,
-                                   "prop_m_notif"=prop_m_notif)
-      } else if(country %in% c("Vietnam", "Nepal", "Bangladesh")) {
-        log_like_all <- data.frame("prop_m_all"=prop_m_all,
-                                   "prop_s_all"=prop_s_all,
-                                   "prop_ms"=prop_ms,
-                                   "pnr_all"=pnr_all,
-                                   "deaths_tb"=deaths_tb,
-                                   "prop_m_notif"=prop_m_notif)
-      }
-    } else if(calib_type=="hist_pos") {
-      #historical mortality targets - sizes (n) of binomial distributions established to match CIs from meta-regression
-      tb_ms_dead_5yr <- dbinom(round(tr[["tb_ms_dead_5yr"]]*220), size=220, prob=out[["tb_ms_dead_5yr"]], log=T)
-      log_like_all <- data.frame("tb_ms_dead_5yr"=tb_ms_dead_5yr)
-    } else if(calib_type=="hist_neg") {
-      #historical mortality targets - sizes (n) of binomial distributions established to match CIs from meta-regression
-      tb_s_dead_5yr <- dbinom(round(tr[["tb_s_dead_5yr"]]*325), size=325, prob=out[["tb_s_dead_5yr"]], log=T)
-      log_like_all <- data.frame("tb_s_dead_5yr"=tb_s_dead_5yr)
-    } else {
-      print("error: incorrect calibration type")
-    }
-    log_like <- rowSums(log_like_all)
-    like <- rowProds(as.matrix(exp(log_like_all)))
-    like_out <- list("like"=like, "log_like"=log_like)
-    return(like_out)
+    like <- calc_like_no10(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
+                           prop_m_notif_smooth, pnr_params, calib_type, country)
+    return(like)
   }
   path_out <- paste0(path_out, "_no10")
 }
 if(RR_free==0 & spont_progress==0 & smear_hist_calib==0 & no_10yr_hist==0) {
   path_out <- paste0(path_out, "_base")
 }
+path_out <- paste0(path_out, "/")
 params_fixed_prev[["m_ac"]] <- m_ac_present[[country]]
 
 #define functions and arguments needed for IMIS package
@@ -354,7 +307,7 @@ IMIS_copy <- function(B, B.re, number_k, D) {
     resample_out = out_all[which_X]
   }
   return(list(stat = t(stat_all), resample = resample_X, center = center_all,
-              out = resample_out))
+              out = resample_out, params_all=X_all, out_all=out_all, weights=Weights))
 }
 
 post <- IMIS_copy(B, B.re, number_k, D)
@@ -368,3 +321,8 @@ write.csv(params_opt, file=paste0(path_out, "IMIS_opt_each_", chain, ".csv"), ro
 stats_out <- post$stat
 write.csv(stats_out, file=paste0(path_out, "IMIS_stats_", chain, ".csv"), row.names=F)
 
+out_all <- bind_cols(post$params_all[1:(B*10+(number_k-1)*B),], post$out_all, "weight"=post$weights)
+save(out_all, file=paste0(path_out, "IMIS_out_all_", chain, ".RDA"))
+
+weights <- post$weights
+save(weights, file=paste0(path_out, "IMIS_wts_all_", chain, ".RDA"))
