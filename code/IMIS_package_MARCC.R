@@ -16,7 +16,7 @@ smear_hist_calib <- 0 #whether to include historical targets on bacillary status
 no_10yr_hist <- 0 #whether to include 10 year historical survival as calibration targets
 flag_symptom_dur <- 0 #don't exclude parameter sets where less than 80-90% spend >2 weeks symptomatic
 country <- "Philippines"
-cyc_len <- 1/52 #weekly timestep
+cyc_len <- 1/12 #weekly or monthly timestep
 
 #load files and implement options
 load("data/params_all.Rda")
@@ -81,7 +81,7 @@ B.re <- 1000 #1000 samples of the posterior
 number_k <- 12 #run 11 rounds of IMIS
 D <- 0 #don't optimize first
 
-#B <- 100 #versions for testing
+#B <- 1000 #versions for testing
 #B.re <- 1000
 #number_k <- 5
 #copy of IMIS package function by Raftery & Bao with additional outputs saved

@@ -31,7 +31,7 @@ for(i in chains) {
   out_post <- read.csv(paste0(path_out, "out_IMIS_", i, ".csv")) %>%
     mutate(chain=i) %>% group_by_all() %>% 
     mutate(chain_id=cur_group_id(), id=paste0(chain, "_", chain_id)) #assign unique id to each param set
-  weights <- load(paste0(path_out, "IMIS_wts_all_", i, ".RDA"))
+  load(paste0(path_out, "IMIS_wts_all_", i, ".RDA")) #load weights
   ess <- 1/sum(weights^2)
   best_params_rounds <- bind_rows(best_params_rounds, best_params)
   stats_rounds <- bind_rows(stats_rounds, stats)

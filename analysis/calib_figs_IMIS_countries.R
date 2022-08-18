@@ -46,11 +46,7 @@ target_lbs <- list()
 target_ubs <- list()
 for(i in countries) {
     print(i)
-    if(i=="Philippines") {
-        load("data/params_targets.Rda")
-    } else {
-        load(paste0("data/params_targets_", tolower(i), ".Rda"))
-    }
+    load(paste0("data/params_targets_", tolower(i), ".Rda"))
     target_means[[i]] <- targets_all
     target_lbs[[i]] <- targets_all_lb
     target_ubs[[i]] <- targets_all_ub

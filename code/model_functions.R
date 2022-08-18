@@ -7,7 +7,43 @@ alive_states <- c("tb", "tb_m", "tb_s", "tb_ms", "sp_cure", "tx_cure")
 tb_states <- c("tb", "tb_m", "tb_s", "tb_ms")
 outcomes <- c("died_tb", "died_nontb", "rel_inf")
 
-#MARKOV MODEL FUNCTION
+#GENERATE TRANSITION MATRIX FOR MARKOV MODEL
+gen_trans_mat <- function(params) {
+  trans_mat <- matrix(data=0, nrow=8, ncol=8) #from=rows, to=columns
+  trans_mat[1, 2] <- params$p_m
+  trans_mat[1, 3] <- params$p_s
+  trans_mat[1, 5] <- params$c_sp
+  trans_mat[1, 8] <- params$m_ac
+  trans_mat[1, 1] <- 1 - (params$p_m + params$p_s + params$c_sp + params$m_ac) + params$m_ac*(params$inflows==1)
+  trans_mat[2, 1] <- params$r_m + params$m_ac*(params$inflows==1)
+  trans_mat[2, 4] <- params$p_s*params$a_p_s
+  trans_mat[2, 8] <- params$m_ac
+  trans_mat[2, 2] <- 1- (params$r_m + params$p_s*params$a_p_s + params$m_ac)
+  trans_mat[3, 1] <- params$r_s + (params$m_tb + params$m_ac)*(params$inflows==1)
+  trans_mat[3, 4] <- params$p_m*params$a_p_m
+  trans_mat[3, 6] <- params$c_tx
+  trans_mat[3, 7] <- params$m_tb
+  trans_mat[3, 8] <- params$m_ac
+  trans_mat[3, 3] <- 1 - (params$r_s + params$p_m*params$a_p_m + params$c_tx + params$m_tb + params$m_ac)
+  trans_mat[4, 1] <- (params$m_tb*params$a_m + params$m_ac)*(params$inflows==1)
+  trans_mat[4, 2] <- params$r_s*params$a_r_s
+  trans_mat[4, 3] <- params$r_m*params$a_r_m
+  trans_mat[4, 6] <- params$c_tx*params$a_tx
+  trans_mat[4, 7] <- params$m_tb*params$a_m
+  trans_mat[4, 8] <- params$m_ac
+  trans_mat[4, 4] <- 1- (params$r_s*params$a_r_s + params$r_m*params$a_r_m + params$c_tx*params$a_tx + params$m_tb*params$a_m + params$m_ac)
+  trans_mat[5, 8] <- params$m_ac
+  trans_mat[5, 1] <- params$p_c + params$m_ac*(params$inflows==1)
+  trans_mat[5, 5] <- 1 - (params$m_ac + params$p_c)
+  trans_mat[6, 8] <- params$m_ac
+  trans_mat[6, 1] <- params$m_ac*(params$inflows==1)
+  trans_mat[6, 6] <- 1 - params$m_ac 
+  trans_mat[7, 7] <- 1
+  trans_mat[8, 8] <- 1
+  return(trans_mat)
+}
+
+#MARKOV MODEL FUNCTION - NO LONGER USING - SWITCHED TO MATRIX VERSION
 #function to run model for a single timestep - markov model version (not individual level)
 #generate data frame where each row is a timestep, each column is a state (track proportion of pop by state), relative # secondary infections is also a column
 nat_hist_markov <- function(p, pop, t) { #p=params list, pop=simulated population, t=timestep
@@ -182,12 +218,10 @@ process_output <- function(sim_pop) {
                                                          outcome=="sp_cure"~"Spontaneous Cures",
                                                          outcome=="tx_cure"~"Diagnosed & Treated",
                                                          outcome=="died_tb"~"TB Deaths",
-                                                         outcome=="died_nontb"~"Non-TB Deaths",
-                                                         outcome=="rel_inf"~"Rel. Secondary Infections"))
+                                                         outcome=="died_nontb"~"Non-TB Deaths"))
   sim_pop_long <- sim_pop_long %>% group_by(t) %>% 
     mutate(value_scale=case_when(outcome %in% alive_states~value/sum(value[outcome %in% alive_states]), #calculate as % of those still alive in time step
-                                 outcome=="rel_inf"~value, #transform separately
-                                 outcome %in% c("died_tb", "died_nontb")~value*n)) #scale by # ppl (already cumulative)
+                                 outcome %in% c("died_tb", "died_nontb")~value)) #already cumulative
   sim_pop_long <- sim_pop_long %>% ungroup() %>% mutate(value_scale=if_else(outcome=="rel_inf", cumsum(value), value_scale))
   sim_pop_long <- sim_pop_long %>% group_by(t) %>% 
     mutate(prop_tb=if_else(outcome %in% tb_states, value/sum(value[outcome %in% tb_states]), 0))  

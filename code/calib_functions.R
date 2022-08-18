@@ -121,7 +121,7 @@ apply_flags <- function(samples, params_fixed, RR_free, flag_symptom_dur) {
                    c("a_p_s", "a_p_m", "a_r_s", "a_r_m", "a_tx", "a_m"))] <- 
       convert_prob(samples_wk[!(names(samples_wk) %in% 
                                   c("a_p_s", "a_p_m", "a_r_s", "a_r_m", "a_tx", "a_m"))], 
-                   12/52)
+                   (1/cyc_len)/52)
     samples_wk <- samples_wk %>% mutate(i=1, i_m=1, i_s=1, i_ms=1, inflows=0)
     #run model for 2 timesteps with everyone in smear- symptom+ to calculate % still symptom+ after 2 weeks
     tic()
@@ -139,7 +139,7 @@ apply_flags <- function(samples, params_fixed, RR_free, flag_symptom_dur) {
            flag4=1*((a_r_s*r_s + a_r_m*r_m + a_m*m_tb + m_ac + a_tx*c_tx) > 1),
            flag5=1*((p_c + m_ac) > 1),
            flag6=1*(prop_s < 0.9)
-           #flag6=1*(((1-convert_prob(r_s, 12/52))^2) < 0.9) #90% of ppl should spend 2+ weeks symptomatic
+           #flag6=1*(((1-convert_prob(r_s, (1/cyc_len)/52))^2) < 0.9) #90% of ppl should spend 2+ weeks symptomatic
            )
   #remove dependent parameters
   if(RR_free==1) {
@@ -297,10 +297,15 @@ calib_out <- function(params_calib, params_fixed, calib_type,
     )
   }
   p_use <- c(p_use, params_depend)
+  trans_mat <- gen_trans_mat(p_use)
   for(t in 1:t_end) {
-    curr_pop <- nat_hist_markov(p_use, sim_pop[t,], t)
-    sim_pop <- bind_rows(sim_pop, curr_pop)
+    curr_pop <- sim_pop[[t]]%*%trans_mat
+    sim_pop[[t+1]] <- curr_pop
   }
+  sim_pop <- do.call(rbind, sim_pop)
+  sim_pop <- cbind(0:t_end, sim_pop)
+  sim_pop <- as.data.frame(sim_pop)
+  names(sim_pop) <- c("t", "tb", "tb_m", "tb_s", "tb_ms", "sp_cure", "tx_cure", "died_tb", "died_nontb")
   if(calib_type=="prev" & country %in% c("Philippines", "Cambodia")) {
     outputs <- calc_outputs_prev(sim_pop, p_use, t, cyc_len, RR_free)
   } else if(calib_type=="prev" & country %in% c("Vietnam", "Nepal", "Bangladesh")) {
@@ -532,22 +537,22 @@ output_like <- function(params) {
   } else {
     params <- data.frame(params)
   }
-  n_time <- 200
-  t_end <- n_time/cyc_len
-  start_pop <- c("t"=0, 
-                 "tb"=1, #smear- symptom- TB
-                 "tb_m"=0, #smear+ symptom- TB
-                 "tb_s"=0, #smear- symptom+ TB
-                 "tb_ms"=0, #smear+ symptom+ TB
-                 "sp_cure"=0, #spontaneously cured
-                 "tx_cure"=0, #cured via diagnosis and treatment
-                 "died_tb"=0, #TB death
-                 "died_nontb"=0 #non-TB death
+  #n_time <- 100 #enough time to reach steady state
+  #t_end <- n_time/cyc_len
+  t_end <- 1200
+  start_pop <- c(1, #smear- symptom- TB
+                 0, #smear+ symptom- TB
+                 0, #smear- symptom+ TB
+                 0, #smear+ symptom+ TB
+                 0, #spontaneously cured
+                 0, #cured via diagnosis and treatment
+                 0, #TB death
+                 0 #non-TB death
   )
+  sim_pop <- list()
+  sim_pop[[1]] <- t(matrix(start_pop))
   targets <- pull_targets("prev", targets_all, country)[[1]]
   names <- pull_targets("prev", targets_all, country)[[2]]
-  sim_pop <- data.frame() 
-  sim_pop <- bind_rows(sim_pop, start_pop)
   params_use <- params %>% select(names(params_calib_prev))
   out_prev <- lapply(1:nrow(params_use), function(x)
     calib_out(params_use[x,], params_fixed_prev, "prev", RR_free, 
@@ -563,16 +568,17 @@ output_like <- function(params) {
   #HISTORICAL COHORT SMEAR POSITIVE TARGETS
   n_time <- 10
   t_end <- n_time/cyc_len
-  start_pop <- c("t"=0, 
-                 "tb"=0, #smear- symptom- TB
-                 "tb_m"=0, #smear+ symptom- TB
-                 "tb_s"=0, #smear- symptom+ TB
-                 "tb_ms"=1, #smear+ symptom+ TB
-                 "sp_cure"=0, #spontaneously cured
-                 "tx_cure"=0, #cured via diagnosis and treatment
-                 "died_tb"=0, #TB death
-                 "died_nontb"=0 #non-TB death
+  start_pop <- c(0, #smear- symptom- TB
+                 0, #smear+ symptom- TB
+                 0, #smear- symptom+ TB
+                 1, #smear+ symptom+ TB
+                 0, #spontaneously cured
+                 0, #cured via diagnosis and treatment
+                 0, #TB death
+                 0 #non-TB death
   )
+  sim_pop <- list()
+  sim_pop[[1]] <- t(matrix(start_pop))
   targets <- pull_targets("hist_pos", targets_all, country)[[1]]
   names <- pull_targets("hist_pos", targets_all, country)[[2]]
   if(smear_hist_calib==1) {
@@ -583,8 +589,6 @@ output_like <- function(params) {
     targets[["tb_smear_4yr_3"]] <- targets_all[["tb_smear_4yr_3"]]
     targets[["alive_4yr_3"]] <- targets_all[["alive_4yr_3"]] 
   }
-  sim_pop <- data.frame() 
-  sim_pop <- bind_rows(sim_pop, start_pop)
   params_use <- params %>% select(names(params_calib_hist))
   out_hist_pos <- lapply(1:nrow(params_use), function(x)
     calib_out(params_use[x,], params_fixed_hist, "hist_pos", RR_free, 
@@ -599,20 +603,19 @@ output_like <- function(params) {
   #HISTORICAL COHORT SMEAR NEGATIVE TARGETS
   n_time <- 10
   t_end <- n_time/cyc_len
-  start_pop <- c("t"=0, 
-                 "tb"=0, #smear- symptom- TB
-                 "tb_m"=0, #smear+ symptom- TB
-                 "tb_s"=1, #smear- symptom+ TB
-                 "tb_ms"=0, #smear+ symptom+ TB
-                 "sp_cure"=0, #spontaneously cured
-                 "tx_cure"=0, #cured via diagnosis and treatment
-                 "died_tb"=0, #TB death
-                 "died_nontb"=0 #non-TB death
+  start_pop <- c(0, #smear- symptom- TB
+                 0, #smear+ symptom- TB
+                 1, #smear- symptom+ TB
+                 0, #smear+ symptom+ TB
+                 0, #spontaneously cured
+                 0, #cured via diagnosis and treatment
+                 0, #TB death
+                 0 #non-TB death
   )
+  sim_pop <- list()
+  sim_pop[[1]] <- t(matrix(start_pop))
   targets <- pull_targets("hist_neg", targets_all, country)[[1]]
   names <- pull_targets("hist_neg", targets_all, country)[[2]]
-  sim_pop <- data.frame() 
-  sim_pop <- bind_rows(sim_pop, start_pop)
   params_use <- params %>% select(names(params_calib_hist))
   out_hist_neg <- lapply(1:nrow(params_use), function(x)
     calib_out(params_use[x,], params_fixed_hist, "hist_neg", RR_free, 
