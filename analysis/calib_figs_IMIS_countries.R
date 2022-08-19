@@ -9,15 +9,16 @@ library(cowplot)
 library(scales)
 library(ggridges)
 
-setwd("C:/Users/Tess/OneDrive - Johns Hopkins/TB/Natural History Modeling")
-path_out <- "output/IMIS Nov2021 v4/"
-source("code/calib_functions2.R")
+setwd("~/GitHub/tb-natural-history")
+path_out <- "output/main/"
+source("code/calib_functions.R")
+load("data/params_all.Rda")
 
-mult_expand <- 1 #whether a_tx is a free parameter or not
 RR_free <- 0 #whether a_r_s and a_p_s vary from a_r_m and a_p_m
 spont_progress <- 0 #whether those who have spontaneously resolved can progress back to smear- symptom- TB
 spont_prog <- 0.15 #annual probability of returning from resolved (if spont_progress==1)
 smear_hist_calib <- 0 #whether to include historical targets on bacillary status over time
+no_10yr_hist <- 0 #whether to include 10 year historical survival as calibration targets
 country <- "Philippines"
 
 #param names and labels for graphing
@@ -46,7 +47,7 @@ target_lbs <- list()
 target_ubs <- list()
 for(i in countries) {
     print(i)
-    load(paste0("data/params_targets_", tolower(i), ".Rda"))
+    load(paste0("data/targets_", tolower(i), ".Rda"))
     target_means[[i]] <- targets_all
     target_lbs[[i]] <- targets_all_lb
     target_ubs[[i]] <- targets_all_ub
@@ -82,13 +83,7 @@ mults <- c(100, 100, 100, 1, 1000, 100, 100, 100, 100, 100)
 names(mults) <- names(names)
 
 #options for sensitivity analyses
-if(mult_expand==1) {
-    params_calib_prev <- params_calib_prev_mult
-    names_params_calib <- names_params_calib_mult
-    priors_prev_lb <- priors_prev_mult_lb
-    priors_prev_ub <- priors_prev_mult_ub
-    params_fixed_hist <- params_fixed_hist_mult
-}
+scenario_lab <- "_base"
 if(RR_free==1) {
     priors_prev_lb <- priors_prev_lb_RRfree
     priors_prev_ub <- priors_prev_ub_RRfree
@@ -96,10 +91,12 @@ if(RR_free==1) {
     params_calib_hist <- params_calib_hist_RRfree
     names_params_calib <- names_params_calib_RRfree
     param_names <- param_names_RRfree
+    scenario_lab <- "_RRfree"
 }
 if(spont_progress==1) {
     params_fixed_prev[["p_c"]] <- 1-exp(log(1-spont_prog)/12) #monthly probability corresponding to annual probability of 3%
     params_fixed_hist[["p_c"]] <- params_fixed_prev[["p_c"]]
+    scenario_lab <- "_spontprog"
 }
 if(smear_hist_calib==1) {
     #sinding-larsen
@@ -115,26 +112,33 @@ if(smear_hist_calib==1) {
     names <- c(names_prev, names_hist_pos, names_hist_neg)
     mults <- c(mults, 100)
     names(mults) <- names(names)
+    scenario_lab <- "_smearhist"
 }
-
+if(no_10yr_hist==1) {
+    scenario_lab <- "_no10"
+}
 #read files in (priors are the same across countries)
-out_prior <- read.csv(paste0(path_out, "out_prior_combined", ".csv")) %>% 
-    mutate(type="Prior", country="Prior")
+out_prior <- read.csv(paste0(path_out, "out_prior_combined.csv")) %>% mutate(type="Prior", country="Prior")
 
 #posteriors and performance for all countries
 out_post_all <- list()
 stats_rounds_all <- list()
+ess_all <- list()
 for(i in countries) {
+    path_in <- paste0("output/", tolower(i), scenario_lab, "/")
     print(i)
-    out_post <- read.csv(paste0("output/IMIS Nov2021 v4 ", tolower(i), "/", "out_IMIS_combined", ".csv")) %>% 
+    out_post <- read.csv(paste0(path_in, "out_IMIS_combined", ".csv")) %>% 
         mutate(type="Posterior", country=i)
-    stats_rounds <- read.csv(paste0("output/IMIS Nov2021 v4 ", tolower(i), "/", "stats_rounds_combined", ".csv")) %>% 
+    stats_rounds <- read.csv(paste0(path_in, "stats_rounds_combined", ".csv")) %>% 
         mutate(country=i)
+    ess <- read.csv(paste0(path_in, "ess_chains.csv"))
     out_post_all[[i]] <- out_post
     stats_rounds_all[[i]] <- stats_rounds
+    ess_all[[i]] <- sum(ess)
 }
 out_post_all <- bind_rows(out_post_all)
 stats_rounds_all <- bind_rows(stats_rounds_all)
+ess_all <- bind_rows(ess_all)
 
 #FIGURE 2: PRIOR AND POSTERIOR DISTRIBUTIONS BY COUNTRY
 out_params <- out_post_all %>% select(names(params_calib_prev), country)
@@ -217,83 +221,85 @@ fig2 <- annotate_figure(fig, left=text_grob("Density", size=9, rot=90),
 ggsave(fig2, filename=paste0(path_out, "param_post_countries_ridges.jpg"), dpi=500, height=8.5, width=10)
 
 #version for slides with different dimensions and no country axis
-param_plots <- list()
-for(i in names(param_names)) {
-    #manually impute bandwidth for params where prior is hard to see
-    if(i %in% c("p_m", "r_m")) {
-        bw <- 0.01
+if(FALSE) {
+    param_plots <- list()
+    for(i in names(param_names)) {
+        #manually impute bandwidth for params where prior is hard to see
+        if(i %in% c("p_m", "r_m")) {
+            bw <- 0.01
+        }
+        if(i=="c_tx") {
+            bw <- 0.01
+        }
+        if(i=="p_s") {
+            bw <- 0.005
+        }
+        if(i=="r_s") {
+            bw <-0.0085
+        }
+        if(i=="c_sp") {
+            bw <- 0.015
+        }
+        if(i %in% c("a_p_m")) {
+            bw <- 0.6
+        }
+        if(i %in% c("a_r_m")) {
+            bw <- 0.025
+        }
+        if(i=="c_tx_m") {
+            bw <- 0.05
+        }
+        if(i %in% c("m_tb", "m_tb_m")) {
+            bw <- 0.005
+        }
+        plot <- ggplot() +
+            geom_density_ridges(data=out_params, aes_string(x=i, y="country", fill="country"), 
+                                alpha=0.5, color="black", bandwidth=bw) + 
+            scale_x_continuous(expand=expansion(mult=0.01)) +
+            scale_y_discrete(limits = rev(levels(out_params$country)), expand=c(0,0)) +
+            scale_fill_manual(values=colors_c[levels(out_params$country)]) +
+            labs(x="", y="", fill="") +
+            ggtitle(param_names[[i]]) + theme_bw() + 
+            theme(panel.grid=element_blank(), legend.position="none", plot.title=element_text(size=9, face="bold"),
+                  axis.text.x=element_text(size=8), axis.title=element_blank(),
+                  axis.text.y=element_blank(), axis.ticks.y=element_blank(),
+                  plot.margin = margin(5.5, 10, 5.5, 5.5))
+        if(i=="m_tb_m") {
+            plot <- plot + scale_x_continuous(limits=c(0, 0.1), expand=expansion(mult=c(0, 0.001)),
+                                              labels=scales::percent_format(accuracy=1),
+                                              breaks=c(0,0.02,0.04,0.06,0.08,0.1)) 
+        }
+        if(i=="m_tb") {
+            plot <- plot + scale_x_continuous(expand=expansion(mult=0.001), 
+                                              labels = scales::percent_format(accuracy=1),
+                                              breaks=c(0,0.02,0.04,0.06,0.08,0.1))
+        }
+        if(i=="c_tx_m") {
+            plot <- plot + scale_x_continuous(expand=expansion(mult=0.001), 
+                                              labels = scales::percent_format(accuracy=1),
+                                              breaks=c(0, 0.25, 0.5, 0.75, 1))
+        }
+        if(i=="c_tx") {
+            plot <- plot + scale_x_continuous(expand=expansion(mult=0.001), 
+                                              labels = scales::percent_format(accuracy=1),
+                                              breaks=c(0, 0.05, 0.1, 0.15, 0.2, 0.25))
+        }
+        if(i=="a_p_m") {
+            plot <- plot + scale_x_continuous(breaks=c(0, 2.5, 5, 7.5, 10))
+        }
+        if(!(i %in% c("a_r_m", "a_r_s", "a_p_m", "a_p_s", "m_tb", "m_tb_m", "c_tx", "c_tx_m"))) {
+            plot <- plot + scale_x_continuous(expand=expansion(mult=0.001), 
+                                              labels = scales::percent_format(accuracy=1))
+        }
+        param_plots[[i]] <- plot
     }
-    if(i=="c_tx") {
-        bw <- 0.01
-    }
-    if(i=="p_s") {
-        bw <- 0.005
-    }
-    if(i=="r_s") {
-        bw <-0.0085
-    }
-    if(i=="c_sp") {
-        bw <- 0.015
-    }
-    if(i %in% c("a_p_m")) {
-        bw <- 0.6
-    }
-    if(i %in% c("a_r_m")) {
-        bw <- 0.025
-    }
-    if(i=="c_tx_m") {
-        bw <- 0.05
-    }
-    if(i %in% c("m_tb", "m_tb_m")) {
-        bw <- 0.005
-    }
-    plot <- ggplot() +
-        geom_density_ridges(data=out_params, aes_string(x=i, y="country", fill="country"), 
-                            alpha=0.5, color="black", bandwidth=bw) + 
-        scale_x_continuous(expand=expansion(mult=0.01)) +
-        scale_y_discrete(limits = rev(levels(out_params$country)), expand=c(0,0)) +
-        scale_fill_manual(values=colors_c[levels(out_params$country)]) +
-        labs(x="", y="", fill="") +
-        ggtitle(param_names[[i]]) + theme_bw() + 
-        theme(panel.grid=element_blank(), legend.position="none", plot.title=element_text(size=9, face="bold"),
-              axis.text.x=element_text(size=8), axis.title=element_blank(),
-              axis.text.y=element_blank(), axis.ticks.y=element_blank(),
-              plot.margin = margin(5.5, 10, 5.5, 5.5))
-    if(i=="m_tb_m") {
-        plot <- plot + scale_x_continuous(limits=c(0, 0.1), expand=expansion(mult=c(0, 0.001)),
-                                          labels=scales::percent_format(accuracy=1),
-                                          breaks=c(0,0.02,0.04,0.06,0.08,0.1)) 
-    }
-    if(i=="m_tb") {
-        plot <- plot + scale_x_continuous(expand=expansion(mult=0.001), 
-                                          labels = scales::percent_format(accuracy=1),
-                                          breaks=c(0,0.02,0.04,0.06,0.08,0.1))
-    }
-    if(i=="c_tx_m") {
-        plot <- plot + scale_x_continuous(expand=expansion(mult=0.001), 
-                                          labels = scales::percent_format(accuracy=1),
-                                          breaks=c(0, 0.25, 0.5, 0.75, 1))
-    }
-    if(i=="c_tx") {
-        plot <- plot + scale_x_continuous(expand=expansion(mult=0.001), 
-                                          labels = scales::percent_format(accuracy=1),
-                                          breaks=c(0, 0.05, 0.1, 0.15, 0.2, 0.25))
-    }
-    if(i=="a_p_m") {
-        plot <- plot + scale_x_continuous(breaks=c(0, 2.5, 5, 7.5, 10))
-    }
-    if(!(i %in% c("a_r_m", "a_r_s", "a_p_m", "a_p_s", "m_tb", "m_tb_m", "c_tx", "c_tx_m"))) {
-        plot <- plot + scale_x_continuous(expand=expansion(mult=0.001), 
-                                          labels = scales::percent_format(accuracy=1))
-    }
-    param_plots[[i]] <- plot
+    param_plots[[length(param_plots)+1]] <- get_legend(plot + theme(legend.position="right"))
+    fig <- plot_grid(plotlist=param_plots, align="hv", nrow=2)
+    fig2 <- annotate_figure(fig, left=text_grob("Density", size=9, rot=90), 
+                            bottom=text_grob("Monthly Values", size=9))
+    ggsave(fig2, filename=paste0(path_out, "param_post_countries_ridges_slides.jpg"), 
+           dpi=500, height=4.5, width=11)
 }
-param_plots[[length(param_plots)+1]] <- get_legend(plot + theme(legend.position="right"))
-fig <- plot_grid(plotlist=param_plots, align="hv", nrow=2)
-fig2 <- annotate_figure(fig, left=text_grob("Density", size=9, rot=90), 
-                        bottom=text_grob("Monthly Values", size=9))
-ggsave(fig2, filename=paste0(path_out, "param_post_countries_ridges_slides.jpg"), 
-       dpi=500, height=4.5, width=11)
 
 #generate means and CIs for each country (for text)
 out_post_sum <- out_params %>% 
@@ -348,37 +354,39 @@ fig <- ggarrange(plotlist=target_plots, align="hv", ncol=3, nrow=4, common.legen
 ggsave(fig, filename=paste0(path_out, "targets_post_countries_ridges.jpg"), dpi=500, height=10, width=8.5)
 
 #version for slides with different dimensions and no country axis
-target_plots <- list()
-for(i in names(names)) {
-    plot <- ggplot() +
-        geom_density_ridges(data=out_targets, aes_string(x=i, y="country_num", fill="country"), 
-                            alpha=0.5, color="black", scale=1.25, rel_min_height=-0.01) + 
-        geom_segment(data=target_means, aes_string(x=i, xend=i, y="country_num", yend="country_num_end"), color="black") +
-        geom_segment(data=target_lbs, aes_string(x=i, xend=i, y="country_num", yend="country_num_end"), color="black", linetype="dashed") +
-        geom_segment(data=target_ubs, aes_string(x=i, xend=i, y="country_num", yend="country_num_end"), color="black", linetype="dashed") +
-        #include horizontal black lines that go all the way across - next line does this:
-        geom_segment(data=target_means, aes(y=country_num, yend=country_num), 
-                     x=min(target_lbs[[i]]) - (max(target_ubs[[i]]) - min(target_lbs[[i]]))*0.2,
-                     xend=max(target_ubs[[i]]) + (max(target_ubs[[i]]) - min(target_lbs[[i]]))*0.2) +
-        scale_x_continuous(expand=expansion(mult=0.02)) +
-        scale_y_discrete(limits=levels(out_targets$country), expand=c(0,0)) +
-        scale_fill_manual(values=colors_c[levels(out_targets$country)]) +
-        labs(x="", y="", fill="") +
-        ggtitle(names[[i]]) + theme_bw() + 
-        theme(panel.grid=element_blank(), legend.position="none", plot.title=element_text(size=9, face="bold"),
-              axis.text.x=element_text(size=8), axis.title=element_blank(),
-              axis.text.y=element_blank(), axis.ticks.y=element_blank(),
-              plot.margin = margin(5.5, 10, 5.5, 5.5))
-    if(i!="pnr") {
-        plot <- plot + scale_x_continuous(expand=expansion(mult=0.02), labels = scales::percent_format(accuracy=1)) 
+if(FALSE) {
+    target_plots <- list()
+    for(i in names(names)) {
+        plot <- ggplot() +
+            geom_density_ridges(data=out_targets, aes_string(x=i, y="country_num", fill="country"), 
+                                alpha=0.5, color="black", scale=1.25, rel_min_height=-0.01) + 
+            geom_segment(data=target_means, aes_string(x=i, xend=i, y="country_num", yend="country_num_end"), color="black") +
+            geom_segment(data=target_lbs, aes_string(x=i, xend=i, y="country_num", yend="country_num_end"), color="black", linetype="dashed") +
+            geom_segment(data=target_ubs, aes_string(x=i, xend=i, y="country_num", yend="country_num_end"), color="black", linetype="dashed") +
+            #include horizontal black lines that go all the way across - next line does this:
+            geom_segment(data=target_means, aes(y=country_num, yend=country_num), 
+                         x=min(target_lbs[[i]]) - (max(target_ubs[[i]]) - min(target_lbs[[i]]))*0.2,
+                         xend=max(target_ubs[[i]]) + (max(target_ubs[[i]]) - min(target_lbs[[i]]))*0.2) +
+            scale_x_continuous(expand=expansion(mult=0.02)) +
+            scale_y_discrete(limits=levels(out_targets$country), expand=c(0,0)) +
+            scale_fill_manual(values=colors_c[levels(out_targets$country)]) +
+            labs(x="", y="", fill="") +
+            ggtitle(names[[i]]) + theme_bw() + 
+            theme(panel.grid=element_blank(), legend.position="none", plot.title=element_text(size=9, face="bold"),
+                  axis.text.x=element_text(size=8), axis.title=element_blank(),
+                  axis.text.y=element_blank(), axis.ticks.y=element_blank(),
+                  plot.margin = margin(5.5, 10, 5.5, 5.5))
+        if(i!="pnr") {
+            plot <- plot + scale_x_continuous(expand=expansion(mult=0.02), labels = scales::percent_format(accuracy=1)) 
+        }
+        target_plots[[i]] <- plot
     }
-    target_plots[[i]] <- plot
+    legend <- get_legend(plot + theme(legend.position="bottom"))
+    fig <- plot_grid(plotlist=target_plots, align="hv", ncol=5, nrow=2)
+    fig2 <- plot_grid(fig, legend, align="hv", nrow=2, rel_heights=c(0.9, 0.1))
+    ggsave(fig2, filename=paste0(path_out, "targets_post_countries_ridges_slides.jpg"), 
+           dpi=500, height=6, width=12)
 }
-legend <- get_legend(plot + theme(legend.position="bottom"))
-fig <- plot_grid(plotlist=target_plots, align="hv", ncol=5, nrow=2)
-fig2 <- plot_grid(fig, legend, align="hv", nrow=2, rel_heights=c(0.9, 0.1))
-ggsave(fig2, filename=paste0(path_out, "targets_post_countries_ridges_slides.jpg"), 
-       dpi=500, height=6, width=12)
 
 
 #CALIBRATION PERFORMANCE BY CHAIN FOR EACH COUNTRY
@@ -392,28 +400,8 @@ ggplot(out_post_temp, aes(x=factor(chain2), y=log_like)) +
     theme_bw() + theme(panel.grid=element_blank())
 ggsave(paste0(path_out, "log_like_box_countries.jpg"), dpi=500, height=10, width=7)
 
-#PROXY CALCULATE ESS BY COUNTRY
-out_post_temp <- unique(out_post_all)
-out_post_temp <- out_post_temp %>% group_by(country) %>%
-    mutate(weight=like/sum(like, na.rm=T))
-ess <- out_post_temp %>% group_by(country) %>%
-    summarise(ess=1/sum(weight^2))
+#ESS by country
 ess
 
-stats_rounds_temp <- stats_rounds_all %>% 
-    filter(round==12 & !is.na(V4))
-ess2 <- stats_rounds_temp %>% group_by(country) %>%
-    summarise(ess2=sum(V4))
-ess2
-
-ess3 <- out_post_temp %>% group_by(country) %>%
-    summarise(ess3=n())
-ess3
-
-ess_all <- left_join(ess, ess2, by="country")
-ess_all <- left_join(ess_all, ess3, by="country")
-names(ess_all) <- c("country",
-                    "inverse_summed_sqr_wts",
-                    "sum_ess_rounds",
-                    "unique_samples")
-write.csv(ess_all, paste0(path_out, "ess_proxy_calcs.csv"), row.names=F)
+#Unique samples by country
+unique(out_post_all) %>% group_by(country) %>% summarise(samples=n())

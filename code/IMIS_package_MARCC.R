@@ -292,8 +292,8 @@ IMIS_copy <- function(B, B.re, number_k, D) {
       }
       gaussian_all = gaussian_new
     }
-    if (stat_all[2, k] > (1 - exp(-1)) * B.re) 
-      break
+    #if (stat_all[2, k] > (1 - exp(-1)) * B.re) 
+     # break
   }
   nonzero = which(Weights > 0)
   which_X = sample(nonzero, B.re, replace = TRUE, prob = Weights[nonzero])
