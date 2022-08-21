@@ -7,6 +7,9 @@ source("code/model_functions.R")
 source("code/calib_functions.R")
 
 chain <- as.character(Sys.getenv('SLURM_ARRAY_TASK_ID'))
+country <- as.character(Sys.getenv('country'))
+print(chain)
+print(country)
 
 #calibration options
 RR_free <- 0 #4 free RR parameters in this version
@@ -15,7 +18,6 @@ spont_prog <- 0.15 #what probability to use if spont_progress is 1
 smear_hist_calib <- 0 #whether to include historical targets on bacillary status over time
 no_10yr_hist <- 0 #whether to include 10 year historical survival as calibration targets
 flag_symptom_dur <- 0 #don't exclude parameter sets where less than 80-90% spend >2 weeks symptomatic
-country <- "Philippines"
 cyc_len <- 1/12 #weekly or monthly timestep
 
 #load files and implement options
@@ -73,6 +75,7 @@ if(RR_free==0 & spont_progress==0 & smear_hist_calib==0 & no_10yr_hist==0) {
   path_out <- paste0(path_out, "_base")
 }
 path_out <- paste0(path_out, "/")
+print(path_out)
 params_fixed_prev[["m_ac"]] <- m_ac_present[[country]]
 
 #define functions and arguments needed for IMIS package

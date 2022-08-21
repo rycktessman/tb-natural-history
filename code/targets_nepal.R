@@ -36,15 +36,19 @@ sorted_rank <- function(X, normals) {
 prev_cases <- 225 #3 currently on tx, 22 history of treatment within past 2 years
 m_cases <- 68 #info on current/tx history not given
 s_cases <- 60 #info on current/tx history not given
-ms_cases <- 0.375*m_cases #% of all smear+ that were symptomatic (slightly different but close to # of smear+ cases)
+ms_cases <- round(0.375*m_cases) #% of all smear+ that were symptomatic (slightly different but close to # of smear+ cases)
 m_only_cases <- m_cases - ms_cases
 s_only_cases <- s_cases - ms_cases
+none_cases <- prev_cases - (m_only_cases + s_only_cases + ms_cases)
+targets_all[["prop"]] <- none_cases/prev_cases
 targets_all[["prop_m"]] <- m_only_cases/prev_cases
 targets_all[["prop_s"]] <- s_only_cases/prev_cases
 targets_all[["prop_ms"]] <- ms_cases/prev_cases
+targets_all_lb[["prop"]] <- qbeta(p=0.025, shape1=none_cases, shape2=prev_cases-none_cases)
 targets_all_lb[["prop_m"]] <- qbeta(p=0.025, shape1=m_only_cases, shape2=prev_cases-m_only_cases)
 targets_all_lb[["prop_s"]] <- qbeta(p=0.025, shape1=s_only_cases, shape2=prev_cases-s_only_cases)
 targets_all_lb[["prop_ms"]] <- qbeta(p=0.025, shape1=ms_cases, shape2=prev_cases-ms_cases)
+targets_all_ub[["prop"]] <- qbeta(p=0.975, shape1=none_cases, shape2=prev_cases-none_cases)
 targets_all_ub[["prop_m"]] <- qbeta(p=0.975, shape1=m_only_cases, shape2=prev_cases-m_only_cases)
 targets_all_ub[["prop_s"]] <- qbeta(p=0.975, shape1=s_only_cases, shape2=prev_cases-s_only_cases)
 targets_all_ub[["prop_ms"]] <- qbeta(p=0.975, shape1=ms_cases, shape2=prev_cases-ms_cases)

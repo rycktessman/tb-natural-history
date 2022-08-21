@@ -33,23 +33,25 @@ sorted_rank <- function(X, normals) {
 #######################
 
 #prevalence smear and symptom breakdowns
-prev_cases_m <- 359 #symptom status available; only those w/out history of/currently on treatment
-prev_cases_s <- 356 #smear status available; only those w/out history of/currently on treatment
 prev_cases <- 356 #use slightly smaller sample for likelihood functions (more uncertainty)
-m_cases <- 131
+m_cases <- 131*356/359 #scale for fact that slightly more had smear results than symptom results
 s_cases <- 104 
 ms_cases <- 61
 m_only_cases <- m_cases - ms_cases
 s_only_cases <- s_cases - ms_cases
-targets_all[["prop_m"]] <- m_only_cases/prev_cases_m
-targets_all[["prop_s"]] <- s_only_cases/prev_cases_s
-targets_all[["prop_ms"]] <- ms_cases/prev_cases_s
-targets_all_lb[["prop_m"]] <- qbeta(p=0.025, shape1=m_only_cases, shape2=prev_cases_m-m_only_cases)
-targets_all_lb[["prop_s"]] <- qbeta(p=0.025, shape1=s_only_cases, shape2=prev_cases_s-s_only_cases)
-targets_all_lb[["prop_ms"]] <- qbeta(p=0.025, shape1=ms_cases, shape2=prev_cases_s-ms_cases)
-targets_all_ub[["prop_m"]] <- qbeta(p=0.975, shape1=m_only_cases, shape2=prev_cases_m-m_only_cases)
-targets_all_ub[["prop_s"]] <- qbeta(p=0.975, shape1=s_only_cases, shape2=prev_cases_s-s_only_cases)
-targets_all_ub[["prop_ms"]] <- qbeta(p=0.975, shape1=ms_cases, shape2=prev_cases_s-ms_cases)
+none_cases <- prev_cases - (m_only_cases + s_only_cases + ms_cases)
+targets_all[["prop"]] <- none_cases/prev_cases
+targets_all[["prop_m"]] <- m_only_cases/prev_cases
+targets_all[["prop_s"]] <- s_only_cases/prev_cases
+targets_all[["prop_ms"]] <- ms_cases/prev_cases
+targets_all_lb[["prop"]] <- qbeta(p=0.025, shape1=none_cases, shape2=prev_cases-none_cases)
+targets_all_lb[["prop_m"]] <- qbeta(p=0.025, shape1=m_only_cases, shape2=prev_cases-m_only_cases)
+targets_all_lb[["prop_s"]] <- qbeta(p=0.025, shape1=s_only_cases, shape2=prev_cases-s_only_cases)
+targets_all_lb[["prop_ms"]] <- qbeta(p=0.025, shape1=ms_cases, shape2=prev_cases-ms_cases)
+targets_all_ub[["prop"]] <- qbeta(p=0.975, shape1=none_cases, shape2=prev_cases-none_cases)
+targets_all_ub[["prop_m"]] <- qbeta(p=0.975, shape1=m_only_cases, shape2=prev_cases-m_only_cases)
+targets_all_ub[["prop_s"]] <- qbeta(p=0.975, shape1=s_only_cases, shape2=prev_cases-s_only_cases)
+targets_all_ub[["prop_ms"]] <- qbeta(p=0.975, shape1=ms_cases, shape2=prev_cases-ms_cases)
 
 #prevalence to notification ratio - adjusted to remove those w/ history of/currently on treatment
 prop_tx <- 0.24 #% of smear+ in prev survey that were already/had already been on treatment

@@ -3,8 +3,13 @@ library(dplyr)
 library(matrixStats)
 library(lhs)
 
+country <- as.character(Sys.getenv('country'))
+analysis <- as.character(Sys.getenv('analysis'))
+print(country)
+print(analysis)
+
 #update path
-path_out <- "output/philippines_base/"
+path_out <- paste0("output/", tolower(country), "_", analysis, "/")
 
 #find completed chains
 completed <- list.files(path=path_out, pattern="IMIS_opt_each")

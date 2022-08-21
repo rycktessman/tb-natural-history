@@ -11,31 +11,23 @@ library(scales)
 library(patchwork)
 library(ggridges)
 library(MetBrewer)
-setwd("C:/Users/Tess/OneDrive - Johns Hopkins/TB/Natural History Modeling")
-source("code/model_v3.R")
-source("code/calib_functions2.R")
 
-path_out <- "output/IMIS Nov2021 v4"
+setwd("~/GitHub/tb-natural-history")
+source("code/model_functions.R")
+source("code/calib_functions.R")
+path_out <- "output/main"
 
 #% by TB state for steady state calcs
 countries <- c("Philippines", "Vietnam", "Nepal", "Cambodia", "Bangladesh")
 steady_wts <- list()
+sizes <- list() #prev survey counts
 for(i in countries) {
   print(i)
-  if(i=="Philippines") {
-    load("data/params_targets.Rda")
-  } else {
-    load(paste0("data/params_targets_", tolower(i), ".Rda"))
-  }
-  wts <- c(1-(targets_all[["prop_m_all"]] + targets_all[["prop_s_all"]] - targets_all[["prop_ms"]]),
-           targets_all[["prop_m_all"]] - targets_all[["prop_ms"]],
-           targets_all[["prop_s_all"]] - targets_all[["prop_ms"]],
-           targets_all[["prop_ms"]])
+  load(paste0("data/targets_", tolower(i), ".Rda"))
+  wts <- targets_all[1:4]
   steady_wts[[i]] <- wts
+  sizes[[i]] <- prev_cases
 }
-
-sizes <- c(356, 219, 225, 314, 278)
-names(sizes) <- countries
 
 #keep consistent colors w/ calibration figs
 colors_c <- c(hue_pal()(5))
@@ -43,14 +35,12 @@ names(colors_c) <- c("Philippines", "Vietnam",
                      "Bangladesh", "Nepal", "Cambodia")
 
 #also assign colors for each state
-#colors_s <- c(hue_pal()(11)[[2]], hue_pal()(4)[c(3,2,4)])
 colors_s <- met.brewer("Veronese", n=5, type="discrete")[c(1,2,4,5)]
 state_names <- c("Smear- Subclinical",
                  "Smear+ Subclinical", 
                  "Smear- Symptomatic", 
                  "Smear+ Symptomatic")
 names(colors_s) <- state_names
-#Hiroshige, Troy, Veronese
 
 #load files for each country and each starting population
 out_post_all <- list()
@@ -58,14 +48,14 @@ props_all <- list()
 times_all_all <- list()
 for(i in countries) {
   print(i)
-  path <- paste0(path_out, " ", tolower(i))
-  out_post <- read.csv(paste0(path, "/out_IMIS_combined.csv"), stringsAsFactors=F)
+  path <- paste0("output/", tolower(i), "_base/")
+  out_post <- read.csv(paste0(path, "out_IMIS_combined.csv"), stringsAsFactors=F)
   out_post_all[[i]] <- out_post
   props_c <- list()
   times_all_c <- list()
   for(start_pop in 1:4) {
-    props <- read.csv(paste0(path, "/props_comb", start_pop, ".csv"), stringsAsFactors=F)
-    load(paste0(path, "/times_all_comb", start_pop, ".Rda"))
+    props <- read.csv(paste0(path, "props_comb", start_pop, ".csv"), stringsAsFactors=F)
+    load(paste0(path, "times_all_comb", start_pop, ".Rda"))
     props_c[[start_pop]] <- props
     times_all_c[[start_pop]] <- times_all_comb
   }
@@ -84,13 +74,10 @@ for(i in countries) {
 
 #each country and initial state separately
 times_out_all <- list()
+path_out <- "output/main/"
 for(i in countries) {
   times_out <- list()
-  if(i=="Philippines") {
-    symptom_available <- F
-  } else {
-    symptom_available <- T
-  }
+  symptom_available <- T
   for(j in 1:4) {
     print(j)
     times_pop <- c()
@@ -205,7 +192,7 @@ for(i in countries) {
   }
   times_out <- bind_cols(times_out)
   times_out_all[[i]] <- times_out
-  write.csv(times_out, file=paste0(path_out, "/times_out_", 
+  write.csv(times_out, file=paste0(path_out, "times_out_", 
                                    tolower(i), ".csv"), row.names=F)
 }
 
@@ -213,11 +200,7 @@ for(i in countries) {
 times_pop_steady_all <- list()
 for(i in countries) {
   print(i)
-  if(i=="Philippines") {
-    symptom_available <- F
-  } else {
-    symptom_available <- T
-  }
+  symptom_available <- T
   times_pop_steady <- list()
   
   times_all_steady <- bind_rows(lapply(1:4, function(x) times_all_all[[i]] %>% filter(start_pop==x) %>% pull(mean)),
@@ -227,7 +210,7 @@ for(i in countries) {
   times_all_steady <- times_all_steady %>% group_by(id) %>% mutate(id_count=n())
   times_all_steady <- times_all_steady %>% filter(id_count==4)
   #apply state population weights
-  times_all_steady <- times_all_steady %>% mutate(weight_steady=steady_wts[[i]][start_pop])
+  times_all_steady <- times_all_steady %>% mutate(weight_steady=unname(unlist(steady_wts[[i]][start_pop])))
   #calculate averages across all states (weighted by state dist) for each param set
   times_all_steady <- times_all_steady %>% group_by(id) %>% select(-c(id_count, start_pop)) %>%
     summarise_all(~weighted.mean(., w=weight_steady))
@@ -366,7 +349,7 @@ for(i in countries) {
 }
 times_pop_steady_all <- bind_cols(times_pop_steady_all)
 write.csv(times_pop_steady_all, 
-          file=paste0(path_out, "/times_out_steady.csv"), row.names=F)
+          file=paste0(path_out, "times_out_steady.csv"), row.names=F)
 
 #countries pooled together
 symptom_available <- T
@@ -679,7 +662,7 @@ if(TRUE) {
   times_pool_out[[5]] <- unlist(times_pop_steady)
 }
 times_pool_out <- bind_cols(times_pool_out)
-write.csv(times_pool_out, file=paste0(path_out, "/times_out_pooled.csv"), row.names=F)
+write.csv(times_pool_out, file=paste0(path_out, "times_out_pooled.csv"), row.names=F)
 
 
 #########################################################################
@@ -701,7 +684,7 @@ for(i in countries) {
   inf_m <- inf/rr_m
   inf_s <- inf/rr_s 
   inf_ms <- inf_m/rr_s
-  wts <- steady_wts[[i]]
+  wts <- unname(unlist(steady_wts[[i]]))
   size <- sizes[[i]]
   times_all <- times_all_all[[i]]
   ids_1 <- as.character(unique((times_all %>% filter(start_pop==1))[["mean"]] %>% pull(id)))
@@ -715,7 +698,7 @@ for(i in countries) {
   times_sub_1 <- times_sub_1 %>% filter(id %in% ids_sub)
   
   #sample population weights to use in calculations
-  props <- data.frame(t(rmultinom(n=length(ids_sub), size=size, prob=wts))/size) #356=cases in prev survey
+  props <- data.frame(t(rmultinom(n=length(ids_sub), size=size, prob=wts))/size)
   names(props) <- c("prop1", "prop2", "prop3", "prop4")
   props <- props %>% mutate(id=ids_sub)
   props_lb <- colQuantiles(as.matrix(props[,1:4]), probs=0.025)
@@ -1011,7 +994,7 @@ rel_inf_out <- rel_inf_out %>%
 rel_inf_out <- pivot_wider(rel_inf_out, id_cols=c("name", "rel_to"),
                            names_from=country, values_from=est)
 rel_inf_out <- rel_inf_out[, c("name", sort(countries), "Pooled", "rel_to")]
-write.csv(rel_inf_out, file=paste0(path_out, "/rel_inf_pp_table.csv"), row.names=F)
+write.csv(rel_inf_out, file=paste0(path_out, "rel_inf_pp_table.csv"), row.names=F)
 
 #part 2: proportions
 props_out <- prop_trans_sum_all %>% select(country, name, lab, pop_lab)
@@ -1162,30 +1145,5 @@ plot <- plot_grid(get_legend(fig4+theme(legend.position="bottom")),
                   plot_top, fig3, plot_bottom, 
                   nrow=4, ncol=1, align="hv",
                   rel_heights=c(0.1, 0.7, 0.5, 0.5))
-ggsave(plot, filename=paste0(path_out, "/rel_inf_v3.jpg"), 
+ggsave(plot, filename=paste0(path_out, "/rel_inf.jpg"), 
        dpi=500, height=11, width=7.5)
-
-#figure for TBScience abstract
-notes <- " Panel A: The distribution of smear and symptom status among individuals with prevalent TB.\n Panel B: The cumulative transmission they will generate over the next five years."
-#notes <- paste0(strwrap(notes, 120), sep="", collapse="\n")
-#notes <- paste0("\n", notes)
-title <- "Figure: Relative number of future transmission events from individuals with\nundiagnosed prevalent TB in different symptom and smear states"
-plot_bottom2 <- plot_grid(fig4 + ggtitle("A. Population TB prevalence") +
-                          theme(legend.position="none"),
-                          fig5 + ggtitle("B. Population contribution to cumulative\n5-year transmission") +
-                          theme(legend.position="none"),
-                          nrow=1, ncol=2, align="hv")
-plot_bottom3 <- plot_grid(text_grob(title, just="left", x=0.02, y=0.5, 
-                                    size=14), 
-                          plot_bottom2,
-                          NULL,
-                          get_legend(fig4+theme(legend.position="bottom")),
-                          NULL,
-                          text_grob(notes, just="left", x=0, y=0.75,
-                                    size=10),
-                          nrow=6, ncol=1, align="hv",
-                          rel_heights=c(0.15, 0.9, 0.05, 0.1, 0.05, 0.1))
-ggsave(plot_bottom3, 
-       filename=paste0(path_out, "/rel_inf_abstract2.jpg"), 
-       dpi=500, height=5.5, width=7.5)
-

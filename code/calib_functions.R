@@ -19,17 +19,19 @@ pull_targets <- function(calib_type, targets_all, country) {
     names <- c("tb_s_dead_5yr"="5-Year Mortality (%), Smear- TB",
                "tb_s_dead_10yr"="10-Year Mortality (%), Smear- TB")
   } else if(calib_type=="prev" & country %in% c("Philippines", "Cambodia")) {
-    targets <- c(targets_all[1:5], targets_all[10])
-    names <- c("prop_m"="% Cases Smear+ & Subclinical",
-               "prop_s"="% Cases smear- & Symptomatic",
+    targets <- targets_all[1:7]
+    names <- c("prop"="% Cases Smear- & Subclinical",
+               "prop_m"="% Cases Smear+ & Subclinical",
+               "prop_s"="% Cases Smear- & Symptomatic",
                "prop_ms"="% Cases Smear+ & Symptomatic",
                "pnr_m_all"="Smear+ Prevalence:Notifications",
                "deaths_tb"="Unreated TB Deaths/1000 cases",
                "prop_m_notif"="% Notifications Smear+")
   } else if(calib_type=="prev" & country %in% c("Vietnam", "Nepal", "Bangladesh")) {
-    targets <- c(targets_all[1:4], targets_all[9:10])
-    names <- c("prop_m"="% Cases Smear+ & Subclinical",
-               "prop_s"="% Cases smear- & Symptomatic",
+    targets <- targets_all[1:7]
+    names <- c("prop"="% Cases Smear- & Subclinical",
+               "prop_m"="% Cases Smear+ & Subclinical",
+               "prop_s"="% Cases Smear- & Symptomatic",
                "prop_ms"="% Cases Smear+ & Symptomatic",
                "pnr_all"="Prevalence:Notifications",
                "deaths_tb"="Unreated TB Deaths/1000 cases",
@@ -216,7 +218,8 @@ calc_outputs_prev <- function(sim_pop, p_opt, t, cyc_len, RR_free) { #curr_pop i
   p <- c(p_opt, params_depend)
   #prevalence survey targets are cross-sectional - no need for cycle length adjustment. 
   #notifications/deaths need cycle length adjustment (modeled deaths are cumulative so adjust for that too)
-  outputs <- c("prop_m"=sim_pop[t+1,"tb_m"]/sum(sim_pop[t, tb_states]),
+  outputs <- c("prop"=sim_pop[t+1,"tb"]/sum(sim_pop[t, tb_states]),
+               "prop_m"=sim_pop[t+1,"tb_m"]/sum(sim_pop[t, tb_states]),
                "prop_s"=sim_pop[t+1,"tb_s"]/sum(sim_pop[t, tb_states]),
                "prop_ms"=sim_pop[t+1,"tb_ms"]/sum(sim_pop[t+1,tb_states]),
                "pnr_m_all"=(sim_pop[t+1,"tb_m"]+sim_pop[t+1,"tb_ms"])/
@@ -241,7 +244,8 @@ calc_outputs_prev_vnm <- function(sim_pop, p_opt, t, cyc_len, RR_free) { #curr_p
   p <- c(p_opt, params_depend)
   #prevalence survey targets are cross-sectional - no need for cycle length adjustment. 
   #notifications/deaths need cycle length adjustment (modeled deaths are cumulative so adjust for that too)
-  outputs <- c("prop_m"=sim_pop[t+1,"tb_m"]/sum(sim_pop[t, tb_states]),
+  outputs <- c("prop"=sim_pop[t+1,"tb"]/sum(sim_pop[t, tb_states]),
+               "prop_m"=sim_pop[t+1,"tb_m"]/sum(sim_pop[t, tb_states]),
                "prop_s"=sim_pop[t+1,"tb_s"]/sum(sim_pop[t, tb_states]),
                "prop_ms"=sim_pop[t+1,"tb_ms"]/sum(sim_pop[t+1,tb_states]),
                "pnr_all"=sum(sim_pop[t+1,tb_states])/
@@ -342,9 +346,15 @@ calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
                       prop_m_notif_smooth, pnr_params, calib_type, country) { #outputs, targets, and upper/lower confidence bounds on targets
   if(calib_type=="prev") {
     #prevalence survey targets proportion of infections by smear/symptom status - we have actual sample size
-    prop_m <- dbinom(round(tr[["prop_m"]]*prev_cases), size=prev_cases, prob=out[["prop_m"]], log=T)
-    prop_s <- dbinom(round(tr[["prop_s"]]*prev_cases), size=prev_cases, prob=out[["prop_s"]], log=T)
-    prop_ms <- dbinom(round(tr[["prop_ms"]]*prev_cases), size=prev_cases, prob=out[["prop_ms"]], log=T)
+    props_ms <- unlist(lapply(1:nrow(out), function(x) 
+      if((out[[x,"prop"]]<0)|is.na(out[[x,"prop"]])|
+         (out[[x,"prop_m"]]<0)|is.na(out[[x,"prop_m"]])|
+         (out[[x,"prop_s"]]<0)|is.na(out[[x,"prop_s"]])|
+         (out[[x,"prop_ms"]]<0)|is.na(out[[x,"prop_ms"]])) NaN else
+        dmultinom(x=c(round(tr[["prop"]]*prev_cases), round(tr[["prop_m"]]*prev_cases), 
+                      round(tr[["prop_s"]]*prev_cases), round(tr[["prop_ms"]]*prev_cases)),
+                  size=prev_cases, prob=c(out[[x,"prop"]], out[[x,"prop_m"]], out[[x,"prop_s"]], out[[x,"prop_ms"]]),
+                  log=T)))
     #prevalence to notification ratio: 0 to inf - gamma fits well (parameters estimated using dampack gamma_params)
     if(country %in% c("Philippines", "Cambodia")) {
       pnr_m_all <- dgamma(out[["pnr_m_all"]], shape=pnr_params$pnr_gamma_shape, scale=pnr_params$pnr_gamma_scale, log=T)
@@ -361,16 +371,12 @@ calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
     prop_m_notif <- unname(log(prop_m_notif_smooth[as.character(round(out[["prop_m_notif"]]*100))]))
     
     if(country %in% c("Philippines", "Cambodia")) {
-      log_like_all <- data.frame("prop_m"=prop_m,
-                                 "prop_s"=prop_s,
-                                 "prop_ms"=prop_ms,
+      log_like_all <- data.frame("props_ms"=props_ms,
                                  "pnr_m_all"=pnr_m_all,
                                  "deaths_tb"=deaths_tb,
                                  "prop_m_notif"=prop_m_notif)
     } else if(country %in% c("Vietnam", "Nepal", "Bangladesh")) {
-      log_like_all <- data.frame("prop_m"=prop_m,
-                                 "prop_s"=prop_s,
-                                 "prop_ms"=prop_ms,
+      log_like_all <- data.frame("props_ms"=props_ms,
                                  "pnr_all"=pnr_all,
                                  "deaths_tb"=deaths_tb,
                                  "prop_m_notif"=prop_m_notif)
@@ -402,9 +408,15 @@ calc_like_no10 <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
                            prop_m_notif_smooth, pnr_params, calib_type, country) { #outputs, targets, and upper/lower confidence bounds on targets
   if(calib_type=="prev") {
     #prevalence survey targets proportion of infections by smear/symptom status - we have actual sample size
-    prop_m <- dbinom(round(tr[["prop_m"]]*prev_cases), size=prev_cases, prob=out[["prop_m"]], log=T)
-    prop_s <- dbinom(round(tr[["prop_s"]]*prev_cases), size=prev_cases, prob=out[["prop_s"]], log=T)
-    prop_ms <- dbinom(round(tr[["prop_ms"]]*prev_cases), size=prev_cases, prob=out[["prop_ms"]], log=T)
+    props_ms <- unlist(lapply(1:nrow(out), function(x) 
+      if((out[[x,"prop"]]<0)|is.na(out[[x,"prop"]])|
+         (out[[x,"prop_m"]]<0)|is.na(out[[x,"prop_m"]])|
+         (out[[x,"prop_s"]]<0)|is.na(out[[x,"prop_s"]])|
+         (out[[x,"prop_ms"]]<0)|is.na(out[[x,"prop_ms"]])) NaN else
+           dmultinom(x=c(round(tr[["prop"]]*prev_cases), round(tr[["prop_m"]]*prev_cases), 
+                         round(tr[["prop_s"]]*prev_cases), round(tr[["prop_ms"]]*prev_cases)),
+                     size=prev_cases, prob=c(out[[x,"prop"]], out[[x,"prop_m"]], out[[x,"prop_s"]], out[[x,"prop_ms"]]),
+                     log=T)))
     #prevalence to notification ratio: 0 to inf - gamma fits well (parameters estimated using dampack gamma_params)
     if(country %in% c("Philippines", "Cambodia")) {
       pnr_m_all <- dgamma(out[["pnr_m_all"]], shape=pnr_params$pnr_gamma_shape, scale=pnr_params$pnr_gamma_scale, log=T)
@@ -421,16 +433,12 @@ calc_like_no10 <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
     prop_m_notif <- unname(log(prop_m_notif_smooth[as.character(round(out[["prop_m_notif"]]*100))]))
     
     if(country %in% c("Philippines", "Cambodia")) {
-      log_like_all <- data.frame("prop_m"=prop_m,
-                                 "prop_s"=prop_s,
-                                 "prop_ms"=prop_ms,
+      log_like_all <- data.frame("props_ms"=props_ms,
                                  "pnr_m_all"=pnr_m_all,
                                  "deaths_tb"=deaths_tb,
                                  "prop_m_notif"=prop_m_notif)
     } else if(country %in% c("Vietnam", "Nepal", "Bangladesh")) {
-      log_like_all <- data.frame("prop_m"=prop_m,
-                                 "prop_s"=prop_s,
-                                 "prop_ms"=prop_ms,
+      log_like_all <- data.frame("props_ms"=props_ms,
                                  "pnr_all"=pnr_all,
                                  "deaths_tb"=deaths_tb,
                                  "prop_m_notif"=prop_m_notif)
@@ -458,9 +466,15 @@ calc_like_smear_hist <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases
                                  country) { #outputs, targets, and upper/lower confidence bounds on targets
   if(calib_type=="prev") {
     #prevalence survey targets proportion of infections by smear/symptom status - we have actual sample size
-    prop_m <- dbinom(round(tr[["prop_m"]]*prev_cases), size=prev_cases, prob=out[["prop_m"]], log=T)
-    prop_s <- dbinom(round(tr[["prop_s"]]*prev_cases), size=prev_cases, prob=out[["prop_s"]], log=T)
-    prop_ms <- dbinom(round(tr[["prop_ms"]]*prev_cases), size=prev_cases, prob=out[["prop_ms"]], log=T)
+    props_ms <- unlist(lapply(1:nrow(out), function(x) 
+      if((out[[x,"prop"]]<0)|is.na(out[[x,"prop"]])|
+         (out[[x,"prop_m"]]<0)|is.na(out[[x,"prop_m"]])|
+         (out[[x,"prop_s"]]<0)|is.na(out[[x,"prop_s"]])|
+         (out[[x,"prop_ms"]]<0)|is.na(out[[x,"prop_ms"]])) NaN else
+           dmultinom(x=c(round(tr[["prop"]]*prev_cases), round(tr[["prop_m"]]*prev_cases), 
+                         round(tr[["prop_s"]]*prev_cases), round(tr[["prop_ms"]]*prev_cases)),
+                     size=prev_cases, prob=c(out[[x,"prop"]], out[[x,"prop_m"]], out[[x,"prop_s"]], out[[x,"prop_ms"]]),
+                     log=T)))
     #prevalence to notification ratio: 0 to inf - gamma fits well (parameters estimated using dampack gamma_params)
     if(country %in% c("Philippines", "Cambodia")) {
       pnr_m_all <- dgamma(out[["pnr_m_all"]], shape=pnr_params$pnr_gamma_shape, scale=pnr_params$pnr_gamma_scale, log=T)
@@ -477,16 +491,12 @@ calc_like_smear_hist <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases
     prop_m_notif <- unname(log(prop_m_notif_smooth[as.character(round(out[["prop_m_notif"]]*100))]))
     
     if(country %in% c("Philippines", "Cambodia")) {
-      log_like_all <- data.frame("prop_m"=prop_m,
-                                 "prop_s"=prop_s,
-                                 "prop_ms"=prop_ms,
+      log_like_all <- data.frame("props_ms"=props_ms,
                                  "pnr_m_all"=pnr_m_all,
                                  "deaths_tb"=deaths_tb,
                                  "prop_m_notif"=prop_m_notif)
     } else if(country %in% c("Vietnam", "Nepal", "Bangladesh")) {
-      log_like_all <- data.frame("prop_m"=prop_m,
-                                 "prop_s"=prop_s,
-                                 "prop_ms"=prop_ms,
+      log_like_all <- data.frame("props_ms"=props_ms,
                                  "pnr_all"=pnr_all,
                                  "deaths_tb"=deaths_tb,
                                  "prop_m_notif"=prop_m_notif)

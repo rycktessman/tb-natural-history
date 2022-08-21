@@ -3,7 +3,7 @@
 #SBATCH --output=R.%A_%a.out
 #SBATCH --error=R.%A_%a.err 
 #SBATCH --time=4:00:00
-#SBATCH -p shared
+#SBATCH -p defq
 #SBATCH --ntasks=1
 ##SBATCH --mem=10000
 ##SBATCH --mem-per-cpu=4000
@@ -16,11 +16,13 @@
 
 #Run code
 module purge
-ml stack
-echo "ml stack successful"
 ml av
 echo "ml av successful"
-ml r/3.6.1
+ml gcc/9.3.0
+echo "ml gcc succesful"
+ml r/4.0.2
 echo "ml r successful"
 
+export country="Nepal" 
+export analysis="base"
 Rscript --vanilla code/IMIS_combine_MARCC.R

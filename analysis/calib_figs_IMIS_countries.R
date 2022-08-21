@@ -73,13 +73,13 @@ target_ubs <- target_ubs %>%
 
 #target names 
 names_prev <- pull_targets("prev", targets_all, "Philippines")[[2]] 
-names_prev[[4]] <- "Prevalence:Notifications"
-names(names_prev)[[4]] <- "pnr"
+names_prev[["pnr_m_all"]] <- "Prevalence:Notifications"
+names(names_prev)[names_prev=="Prevalence:Notifications"] <- "pnr"
 names_hist_pos <- pull_targets("hist_pos", targets_all, country)[[2]]
 names_hist_neg <- pull_targets("hist_neg", targets_all, country)[[2]]
 names <- c(names_prev, names_hist_pos, names_hist_neg)
 #multipliers when graphing each target
-mults <- c(100, 100, 100, 1, 1000, 100, 100, 100, 100, 100)
+mults <- c(100, 100, 100, 100, 1, 1000, 100, 100, 100, 100, 100)
 names(mults) <- names(names)
 
 #options for sensitivity analyses
@@ -119,11 +119,16 @@ if(no_10yr_hist==1) {
 }
 #read files in (priors are the same across countries)
 out_prior <- read.csv(paste0(path_out, "out_prior_combined.csv")) %>% mutate(type="Prior", country="Prior")
+out_prior <- out_prior %>% mutate(prop_m=prop_m_all-prop_ms,
+                                  prop_s=prop_s_all-prop_ms,
+                                  prop=1-(prop_m+prop_s+prop_ms)) %>%
+    select(-c(prop_m_all, prop_s_all))
 
 #posteriors and performance for all countries
 out_post_all <- list()
 stats_rounds_all <- list()
 ess_all <- list()
+ess_each <- list()
 for(i in countries) {
     path_in <- paste0("output/", tolower(i), scenario_lab, "/")
     print(i)
@@ -134,11 +139,14 @@ for(i in countries) {
     ess <- read.csv(paste0(path_in, "ess_chains.csv"))
     out_post_all[[i]] <- out_post
     stats_rounds_all[[i]] <- stats_rounds
+    ess_each[[i]] <- ess
     ess_all[[i]] <- sum(ess)
 }
 out_post_all <- bind_rows(out_post_all)
 stats_rounds_all <- bind_rows(stats_rounds_all)
 ess_all <- bind_rows(ess_all)
+ess_each <- bind_cols(ess_each)
+names(ess_each) <- countries
 
 #FIGURE 2: PRIOR AND POSTERIOR DISTRIBUTIONS BY COUNTRY
 out_params <- out_post_all %>% select(names(params_calib_prev), country)
@@ -401,7 +409,9 @@ ggplot(out_post_temp, aes(x=factor(chain2), y=log_like)) +
 ggsave(paste0(path_out, "log_like_box_countries.jpg"), dpi=500, height=10, width=7)
 
 #ESS by country
-ess
+ess_all
 
 #Unique samples by country
 unique(out_post_all) %>% group_by(country) %>% summarise(samples=n())
+chain_sets <- unique(out_post_all) %>% group_by(country, chain) %>% summarise(samples=n())
+chain_sets %>% group_by(country) %>% summarise(samples=mean(samples))

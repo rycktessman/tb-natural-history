@@ -7,37 +7,50 @@ alive_states <- c("tb", "tb_m", "tb_s", "tb_ms", "sp_cure", "tx_cure")
 tb_states <- c("tb", "tb_m", "tb_s", "tb_ms")
 outcomes <- c("died_tb", "died_nontb", "rel_inf")
 
-#GENERATE TRANSITION MATRIX FOR MARKOV MODEL
+#GENERATE TRANSITION MATRIX FOR MARKOV MODEL - if inflows off, rowSums=1's
 gen_trans_mat <- function(params) {
   trans_mat <- matrix(data=0, nrow=8, ncol=8) #from=rows, to=columns
-  trans_mat[1, 2] <- params$p_m
-  trans_mat[1, 3] <- params$p_s
-  trans_mat[1, 5] <- params$c_sp
+  #order: TB deaths, non-TB deaths, treatment, progression & regression, inflows
+  #transtitions out of smear-/symptom-
+  trans_mat[1, 2] <- params$p_m*(1-params$m_ac)
+  trans_mat[1, 3] <- params$p_s*(1-params$m_ac)
+  trans_mat[1, 5] <- params$c_sp*(1-params$m_ac)
   trans_mat[1, 8] <- params$m_ac
-  trans_mat[1, 1] <- 1 - (params$p_m + params$p_s + params$c_sp + params$m_ac) + params$m_ac*(params$inflows==1)
-  trans_mat[2, 1] <- params$r_m + params$m_ac*(params$inflows==1)
-  trans_mat[2, 4] <- params$p_s*params$a_p_s
+  trans_mat[1, 1] <- 1 - ((1-params$m_ac)*(params$p_m + params$p_s + params$c_sp) + params$m_ac) + params$m_ac*(params$inflows==1)
+  #transitions out of smear+/symptom-
+  trans_mat[2, 1] <- params$r_m*(1-params$m_ac) + params$m_ac*(params$inflows==1)
+  trans_mat[2, 4] <- params$p_s*params$a_p_s*(1-params$m_ac)
   trans_mat[2, 8] <- params$m_ac
-  trans_mat[2, 2] <- 1- (params$r_m + params$p_s*params$a_p_s + params$m_ac)
-  trans_mat[3, 1] <- params$r_s + (params$m_tb + params$m_ac)*(params$inflows==1)
-  trans_mat[3, 4] <- params$p_m*params$a_p_m
-  trans_mat[3, 6] <- params$c_tx
+  trans_mat[2, 2] <- 1- ((1-params$m_ac)*(params$r_m + params$p_s*params$a_p_s) + params$m_ac)
+  #transitions out of smear-/symptom+
+  trans_mat[3, 1] <- params$r_s*(1-params$m_tb)*(1-params$m_ac)*(1-params$c_tx) + 
+    (params$m_tb + params$m_ac*(1-params$m_tb))*(params$inflows==1)
+  trans_mat[3, 4] <- params$p_m*params$a_p_m*(1-params$m_tb)*(1-params$m_ac)*(1-params$c_tx)
+  trans_mat[3, 6] <- params$c_tx*(1-params$m_tb)*(1-params$m_ac)
   trans_mat[3, 7] <- params$m_tb
-  trans_mat[3, 8] <- params$m_ac
-  trans_mat[3, 3] <- 1 - (params$r_s + params$p_m*params$a_p_m + params$c_tx + params$m_tb + params$m_ac)
-  trans_mat[4, 1] <- (params$m_tb*params$a_m + params$m_ac)*(params$inflows==1)
-  trans_mat[4, 2] <- params$r_s*params$a_r_s
-  trans_mat[4, 3] <- params$r_m*params$a_r_m
-  trans_mat[4, 6] <- params$c_tx*params$a_tx
+  trans_mat[3, 8] <- params$m_ac*(1-params$m_tb)
+  trans_mat[3, 3] <- 1 - ((params$r_s + params$p_m*params$a_p_m)*(1-params$m_tb)*(1-params$m_ac)*(1-params$c_tx) +
+                            params$c_tx*(1-params$m_tb)*(1-params$m_ac) + 
+                            params$m_tb + params$m_ac*(1-params$m_tb))
+  #transitions out of smear+/symptom+
+  trans_mat[4, 1] <- (params$m_tb*params$a_m + params$m_ac*(1-params$m_tb*params$a_m))*(params$inflows==1)
+  trans_mat[4, 2] <- params$r_s*params$a_r_s*(1-params$m_tb*params$a_m)*(1-params$m_ac)*(1-params$c_tx*params$a_tx)
+  trans_mat[4, 3] <- params$r_m*params$a_r_m*(1-params$m_tb*params$a_m)*(1-params$m_ac)*(1-params$c_tx*params$a_tx)
+  trans_mat[4, 6] <- params$c_tx*params$a_tx*(1-params$m_tb*params$a_m)*(1-params$m_ac)
   trans_mat[4, 7] <- params$m_tb*params$a_m
-  trans_mat[4, 8] <- params$m_ac
-  trans_mat[4, 4] <- 1- (params$r_s*params$a_r_s + params$r_m*params$a_r_m + params$c_tx*params$a_tx + params$m_tb*params$a_m + params$m_ac)
+  trans_mat[4, 8] <- params$m_ac*(1-params$m_tb*params$a_m)
+  trans_mat[4, 4] <- 1- ((1-params$m_tb*params$a_m)*(1-params$m_ac)*(1-params$c_tx*params$a_tx)*(params$r_s*params$a_r_s + params$r_m*params$a_r_m) + 
+                           params$c_tx*params$a_tx*(1-params$m_tb*params$a_m)*(1-params$m_ac) + 
+                           params$m_tb*params$a_m + params$m_ac*(1-params$m_tb*params$a_m))
+  #transitions out of spontaneously resolved
   trans_mat[5, 8] <- params$m_ac
-  trans_mat[5, 1] <- params$p_c + params$m_ac*(params$inflows==1)
-  trans_mat[5, 5] <- 1 - (params$m_ac + params$p_c)
+  trans_mat[5, 1] <- params$p_c*(1-params$m_ac) + params$m_ac*(params$inflows==1)
+  trans_mat[5, 5] <- 1 - (params$m_ac + params$p_c*(1-params$m_ac))
+  #transitions out of detected/treated
   trans_mat[6, 8] <- params$m_ac
   trans_mat[6, 1] <- params$m_ac*(params$inflows==1)
   trans_mat[6, 6] <- 1 - params$m_ac 
+  #deaths stay dead
   trans_mat[7, 7] <- 1
   trans_mat[8, 8] <- 1
   return(trans_mat)
