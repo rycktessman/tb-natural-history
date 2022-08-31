@@ -16,6 +16,7 @@ setwd("~/GitHub/tb-natural-history")
 source("code/model_functions.R")
 source("code/calib_functions.R")
 path_out <- "output/main"
+scenario_lab <- "rrfree" #base, rrfree, spontprog, smearhist, no10
 
 #% by TB state for steady state calcs
 countries <- c("Philippines", "Vietnam", "Nepal", "Cambodia", "Bangladesh")
@@ -48,7 +49,7 @@ props_all <- list()
 times_all_all <- list()
 for(i in countries) {
   print(i)
-  path <- paste0("output/", tolower(i), "_base/")
+  path <- paste0("output/", tolower(i), "_", scenario_lab, "/")
   out_post <- read.csv(paste0(path, "out_IMIS_combined.csv"), stringsAsFactors=F)
   out_post_all[[i]] <- out_post
   props_c <- list()
@@ -193,7 +194,7 @@ for(i in countries) {
   times_out <- bind_cols(times_out)
   times_out_all[[i]] <- times_out
   write.csv(times_out, file=paste0(path_out, "times_out_", 
-                                   tolower(i), ".csv"), row.names=F)
+                                   tolower(i), "_", scenario_lab, ".csv"), row.names=F)
 }
 
 #steady state distribution (each country separately)
@@ -276,7 +277,7 @@ for(i in countries) {
   props_steady <- props_steady %>% group_by(id) %>% mutate(id_count=n())
   props_steady <- props_steady %>% filter(id_count==4)
   #apply state population weights
-  props_steady <- props_steady %>% mutate(weight_steady=steady_wts[[i]][start_pop])
+  props_steady <- props_steady %>% mutate(weight_steady=unname(unlist(steady_wts[[i]][start_pop])))
   #calculate averages across all states (weighted by state dist) for each param set
   props_steady <- props_steady %>% group_by(id) %>% select(-c(id_count, start_pop)) %>%
     summarise_all(~weighted.mean(., w=weight_steady))
@@ -349,7 +350,7 @@ for(i in countries) {
 }
 times_pop_steady_all <- bind_cols(times_pop_steady_all)
 write.csv(times_pop_steady_all, 
-          file=paste0(path_out, "times_out_steady.csv"), row.names=F)
+          file=paste0(path_out, "times_out_steady", "_", scenario_lab ,".csv"), row.names=F)
 
 #countries pooled together
 symptom_available <- T
@@ -506,9 +507,13 @@ if(TRUE) {
     times_pool_steady[[x]][row_nums[[x]], ], simplify=F)
   #merge in pop weights
   times_pool_steady <- sapply(countries, function(x)
-    times_pool_steady[[x]] %>%
-      mutate(weight_steady=steady_wts[[x]][as.numeric(start_pop)]),
+    times_pool_steady[[x]] %>% 
+      mutate(start_pop=as.numeric(start_pop)),
     simplify=F)
+  times_pool_steady <- sapply(countries, function(x)
+    times_pool_steady[[x]] %>%
+      mutate(weight_steady=unname(unlist(steady_wts[[x]][start_pop]))),
+    simplify=F) 
   #bind rows together 
   times_pool_steady <- bind_rows(times_pool_steady, .id="country")
   
@@ -596,9 +601,13 @@ if(TRUE) {
     props_pool_steady[[x]][row_nums[[x]], ], simplify=F)
   #apply state population weights
   props_pool_steady <- sapply(countries, function(x)
-    props_pool_steady[[x]] %>%
-      mutate(weight_steady=steady_wts[[x]][as.numeric(start_pop)]),
+    props_pool_steady[[x]] %>% 
+      mutate(start_pop=as.numeric(start_pop)),
     simplify=F)
+  props_pool_steady <- sapply(countries, function(x)
+    props_pool_steady[[x]] %>%
+      mutate(weight_steady=unname(unlist(steady_wts[[x]][start_pop]))),
+    simplify=F) 
   #bind rows
   props_pool_steady <- bind_rows(props_pool_steady, .id="country")
   #calculate averages across all states (weighted by state dist) for each param set
@@ -662,7 +671,7 @@ if(TRUE) {
   times_pool_out[[5]] <- unlist(times_pop_steady)
 }
 times_pool_out <- bind_cols(times_pool_out)
-write.csv(times_pool_out, file=paste0(path_out, "times_out_pooled.csv"), row.names=F)
+write.csv(times_pool_out, file=paste0(path_out, "times_out_pooled_", scenario_lab, ".csv"), row.names=F)
 
 
 #########################################################################
@@ -994,156 +1003,160 @@ rel_inf_out <- rel_inf_out %>%
 rel_inf_out <- pivot_wider(rel_inf_out, id_cols=c("name", "rel_to"),
                            names_from=country, values_from=est)
 rel_inf_out <- rel_inf_out[, c("name", sort(countries), "Pooled", "rel_to")]
-write.csv(rel_inf_out, file=paste0(path_out, "rel_inf_pp_table.csv"), row.names=F)
+write.csv(rel_inf_out, file=paste0(path_out, "rel_inf_pp_table_", scenario_lab, ".csv"), row.names=F)
 
 #part 2: proportions
 props_out <- prop_trans_sum_all %>% select(country, name, lab, pop_lab)
 props_out <- props_out %>% pivot_longer(props_out, cols=contains("lab"),
-                                        names_to="estimate", values_to="value")
+                                        names_to="estimate", values_to="value") #warning here is fine
 props_out <- props_out %>% 
   mutate(estimate=if_else(estimate=="lab", "trans_prop", "pop_prop"))
 props_out <- pivot_wider(props_out, id_cols=c("name", "estimate"),
                          names_from=country, values_from="value")
 props_out <- props_out %>% arrange(estimate, name)
 props_out <- props_out[, c("estimate", "name", sort(countries))]
-write.csv(props_out, file=paste0(path_out, "/rel_inf_pop_table.csv"), row.names=F)
+write.csv(props_out, file=paste0(path_out, "/rel_inf_pop_table_", scenario_lab, ".csv"), row.names=F)
 
-#labels from graphs
-rel_inf_out_long <- pivot_longer(rel_inf_out, cols=sort(countries),
-                                 names_to="country", 
-                                 values_to="rel_inf")
-rel_inf_out_long <- rel_inf_out_long %>%
-  mutate(x_pos=as.numeric(str_split(rel_inf, " ", simplify=T)[,1]) +
-           case_when(name=="Smear- Symptomatic"~1.2, 
-                   rel_to=="Smear+ Symptomatic"~0.6, 
-                   TRUE~0), #place to right of tall peaks
-         y_pos=as.numeric(factor(country, levels=sort(countries, decreasing=T)))+
-           case_when(name=="Smear- Symptomatic"~0.8,
-                     name=="Smear+ Symptomatic"~0.4,
-                     rel_to=="Smear+ Symptomatic"~0.75,
-                     TRUE~0.6)) #make position higher for tall peaks
+
   
 #TOP PANEL - rel_inf distributions for each state and country
-fig1 <- ggplot(rel_inf_samples_all, aes(x=rel_inf, y=country, fill=state)) +
-  geom_density_ridges(alpha=0, scale=1.5,
-                      quantile_lines=T, quantile_fun=function(x,...)mean(x), bandwidth=0.05) +
-  stat_density_ridges(scale=1.5, quantile_lines=T, quantiles=c(0.025, 0.975), alpha=0.5, bandwidth=0.05) +
-  geom_vline(aes(xintercept=1), linetype="dashed") +
-  geom_text(data=rel_inf_out_long %>% filter(rel_to=="Smear- Subclinical"), 
-            aes(x=x_pos, y=y_pos, label=rel_inf, fill=NULL), size=3) +
-  scale_y_discrete(limits = rev,
-                   expand=expansion(mult=c(0, 0.05))) +
-  scale_x_continuous(limits=c(0, 11), breaks=1:10,
-                     expand=c(0,0)) +
-  scale_fill_manual(values=colors_s) +
-  ggtitle("A. Relative cumulative secondary infections") +
-  labs(x="vs. smear-negative subclinical", y="", fill="") +
-  theme_bw()  + theme(plot.title=element_text(size=11, face="bold"),
-                      axis.title.y=element_blank(),
-                      axis.title.x=element_text(size=10),
-                      plot.margin = unit(c(0,0.2,0,0), "cm"),
-                      legend.position="none")
-fig2 <- ggplot(rel_smear_samples_all, aes(x=rel_inf, y=country, fill=state)) +
-  geom_density_ridges(alpha=0, scale=1.5,
-                      quantile_lines=T, quantile_fun=function(x,...)mean(x)) +
-  stat_density_ridges(scale=1.5, quantile_lines=T, quantiles=c(0.025, 0.975), alpha=0.5) +
-  geom_vline(aes(xintercept=1), linetype="dashed") +
-  geom_text(data=rel_inf_out_long %>% filter(rel_to=="Smear+ Symptomatic"), 
-            aes(x=x_pos, y=y_pos, label=rel_inf, fill=NULL), size=3) +
-  scale_y_discrete(limits = rev,
-                   expand=expansion(mult=c(0, 0.05))) +
-  scale_x_continuous(limits=c(0, 3), breaks=1:3,
-                     expand=c(0,0)) +
-  scale_fill_manual(values=colors_s) +
-  ggtitle("") +
-  labs(x="vs. smear-pos. symptomatic", y="", fill="") +
-  theme_bw()  + theme(plot.title=element_text(size=11, face="bold"),
-                      axis.title.y=element_blank(),
-                      axis.title.x=element_text(size=10),
-                      plot.margin = unit(c(0,0.1,0,0.2), "cm"),
-                      legend.position="none",
-                      axis.text.y=element_blank(),
-                      axis.ticks.y=element_blank())
-plot_top <- wrap_plots(fig1, fig2, ncol=2, nrow=1, 
-                       widths=c(0.65, 0.35))
+if(scenario_lab=="base")  {   #don't need this figure for sensitivity analyses - just use the tables
+  #labels for graphs
+  rel_inf_out_long <- pivot_longer(rel_inf_out, cols=sort(countries),
+                                   names_to="country", 
+                                   values_to="rel_inf")
+  rel_inf_out_long <- rel_inf_out_long %>%
+    mutate(x_pos=as.numeric(str_split(rel_inf, " ", simplify=T)[,1]) +
+             case_when(name=="Smear- Symptomatic"~1.2, 
+                       rel_to=="Smear+ Symptomatic"~0.6, 
+                       TRUE~0), #place to right of tall peaks
+           y_pos=as.numeric(factor(country, levels=sort(countries, decreasing=T)))+
+             case_when(name=="Smear- Symptomatic"~0.8,
+                       name=="Smear+ Symptomatic"~0.4,
+                       rel_to=="Smear+ Symptomatic"~0.75,
+                       TRUE~0.6)) #make position higher for tall peaks
+  fig1 <- ggplot(rel_inf_samples_all, aes(x=rel_inf, y=country, fill=state)) +
+    geom_density_ridges(alpha=0, scale=1.5,
+                        quantile_lines=T, quantile_fun=function(x,...)mean(x), bandwidth=0.05) +
+    stat_density_ridges(scale=1.5, quantile_lines=T, quantiles=c(0.025, 0.975), alpha=0.5, bandwidth=0.05) +
+    geom_vline(aes(xintercept=1), linetype="dashed") +
+    geom_text(data=rel_inf_out_long %>% filter(rel_to=="Smear- Subclinical"), 
+              aes(x=x_pos, y=y_pos, label=rel_inf, fill=NULL), size=3) +
+    scale_y_discrete(limits = rev,
+                     expand=expansion(mult=c(0, 0.05))) +
+    scale_x_continuous(limits=c(0, 11), breaks=1:10,
+                       expand=c(0,0)) +
+    scale_fill_manual(values=colors_s) +
+    ggtitle("A. Relative cumulative secondary infections") +
+    labs(x="vs. smear-negative subclinical", y="", fill="") +
+    theme_bw()  + theme(plot.title=element_text(size=11, face="bold"),
+                        axis.title.y=element_blank(),
+                        axis.title.x=element_text(size=10),
+                        plot.margin = unit(c(0,0.2,0,0), "cm"),
+                        legend.position="none")
+  fig2 <- ggplot(rel_smear_samples_all, aes(x=rel_inf, y=country, fill=state)) +
+    geom_density_ridges(alpha=0, scale=1.5,
+                        quantile_lines=T, quantile_fun=function(x,...)mean(x)) +
+    stat_density_ridges(scale=1.5, quantile_lines=T, quantiles=c(0.025, 0.975), alpha=0.5) +
+    geom_vline(aes(xintercept=1), linetype="dashed") +
+    geom_text(data=rel_inf_out_long %>% filter(rel_to=="Smear+ Symptomatic"), 
+              aes(x=x_pos, y=y_pos, label=rel_inf, fill=NULL), size=3) +
+    scale_y_discrete(limits = rev,
+                     expand=expansion(mult=c(0, 0.05))) +
+    scale_x_continuous(limits=c(0, 3), breaks=1:3,
+                       expand=c(0,0)) +
+    scale_fill_manual(values=colors_s) +
+    ggtitle("") +
+    labs(x="vs. smear-pos. symptomatic", y="", fill="") +
+    theme_bw()  + theme(plot.title=element_text(size=11, face="bold"),
+                        axis.title.y=element_blank(),
+                        axis.title.x=element_text(size=10),
+                        plot.margin = unit(c(0,0.1,0,0.2), "cm"),
+                        legend.position="none",
+                        axis.text.y=element_blank(),
+                        axis.ticks.y=element_blank())
+  plot_top <- wrap_plots(fig1, fig2, ncol=2, nrow=1, 
+                         widths=c(0.65, 0.35))
+  
+  #MIDDLE PANEL: sensitivity analysis on smear
+  fig3 <- ggplot(rel_inf_smear_all, aes(x=inf_m, color=country)) +
+    #geom_point(aes(y=mu), position=position_jitter(seed=123, width=0.02)) +
+    #geom_errorbar(aes(y=mu, ymin=lb, ymax=ub), width=0.02,
+    #               position=position_jitter(seed=123, width=0.02)) +
+    geom_line(data=rel_inf_smear_sa_all, 
+              aes(x=rr_s, y=mu, color=country), alpha=0.25, size=1) +
+    geom_line(data=rel_inf_smear_sa_all, 
+              aes(x=rr_s, y=mu, color=country, linetype=country), size=1) +
+    geom_hline(aes(yintercept=1)) +
+    geom_vline(aes(xintercept=0.7), linetype="dashed") +
+    geom_text(x=0.71, y=1.7, 
+              label="Base Estimate\n(70%)", 
+              color="black", size=3, fontface=1, hjust=0) +
+    scale_y_continuous(expand=expansion(mult=c(.05, .05))) +
+    scale_x_continuous(expand=expansion(mult=c(0, 0)),
+                       breaks=c(0.25, 0.5, 0.75, 1),
+                       labels=scales::percent_format(accuracy=1)) +
+    scale_color_manual(values=colors_c[sort(unique(rel_inf_smear_all$country))]) +
+    scale_linetype_manual(values=c("dashed", "dotted", "longdash", "solid", "twodash")) +
+    labs(x="Relative infectiousness of subclinical (vs. symptomatic) TB", 
+         y="Relative cumulative\nsecondary infections",
+         fill="", color="", linetype="") +
+    theme_bw() + theme(panel.grid=element_blank()) + 
+    ggtitle("B. Per-person contribution to transmission over 5 years,\nsmear-positive subclinical vs. smear-positive symptomatic") +
+    theme(plot.title=element_text(size=11, face="bold"),
+          axis.title=element_text(size=10),
+          plot.margin = unit(c(0.5,0,0,0), "cm"),
+          legend.key.width=unit(1, "cm"))
+  #BOTTOM PANEL: stacked bar charts
+  prop_pop <- prop_trans_sum_all %>% 
+    select(country, name, starts_with("pop_lab"), starts_with("pop_prop"))
+  prop_trans <- prop_trans_sum_all %>% 
+    select(country, name, starts_with("lab"), starts_with("prop_trans")) 
+  fig4 <- ggplot(prop_pop) + 
+    geom_col(aes(x=country, y=pop_prop, fill=fct_rev(name)), 
+             width=0.95, position="stack") +
+    geom_text(aes(x=country, y=pop_prop, 
+                  label=fct_rev(pop_lab2)), 
+              position=position_stack(vjust=0.5), size=3, fontface=1, color="white") +
+    scale_y_continuous(expand=expansion(mult=c(0, 0)),
+                       labels=scales::percent_format(accuracy=1)) +
+    scale_fill_manual(values=colors_s) + scale_color_manual(values=c("white", "black", "black", "black")) +
+    labs(x="", y="", fill="Initial TB state", color="", group="") +
+    ggtitle("C. Population contribution to\nTB prevalence") +
+    guides(color="none") +
+    theme_bw() + theme(panel.grid=element_blank()) +
+    theme(plot.title=element_text(size=11, face="bold"),
+          legend.margin=margin(t=0, unit="cm"),
+          axis.title=element_blank(),
+          plot.margin = unit(c(0.5,0,0,0), "cm"))
+  
+  fig5 <- ggplot(prop_trans) + 
+    geom_col(aes(x=country, y=prop_trans_mu, fill=fct_rev(name)),
+             width=0.95, position="stack") +
+    geom_text(aes(x=country, y=prop_trans_mu, 
+                  label=fct_rev(lab2)), 
+              position=position_stack(vjust=0.5), size=3, fontface=1, color="white") +
+    scale_y_continuous(expand=expansion(mult=c(0, 0)),
+                       labels=scales::percent_format(accuracy=1)) +
+    scale_fill_manual(values=colors_s) + scale_color_manual(values=c("white", "black", "black", "black")) +
+    labs(x="", y="", fill="Initial TB state", color="", group="") +
+    ggtitle("D. Population contribution to\ncumulative 5-year transmission") +
+    guides(color="none") +
+    theme_bw() + theme(panel.grid=element_blank()) +
+    theme(plot.title=element_text(size=11, face="bold"),
+          legend.margin=margin(t=0, unit="cm"),
+          axis.title=element_blank(),
+          plot.margin = unit(c(0.5,0.2,0,0), "cm"),
+          axis.text.y=element_blank(), axis.ticks.y=element_blank())
+  plot_bottom <- plot_grid(fig4 + theme(legend.position="none"),
+                           fig5 + theme(legend.position="none"),
+                           nrow=1, ncol=2, align="hv")
+  #combine all panels
+  plot <- plot_grid(get_legend(fig4+theme(legend.position="bottom")),
+                    plot_top, fig3, plot_bottom, 
+                    nrow=4, ncol=1, align="hv",
+                    rel_heights=c(0.1, 0.7, 0.5, 0.5))
+  ggsave(plot, filename=paste0(path_out, "/rel_inf.jpg"), 
+         dpi=500, height=11, width=7.5)
+}
 
-#MIDDLE PANEL: sensitivity analysis on smear
-fig3 <- ggplot(rel_inf_smear_all, aes(x=inf_m, color=country)) +
-  #geom_point(aes(y=mu), position=position_jitter(seed=123, width=0.02)) +
-  #geom_errorbar(aes(y=mu, ymin=lb, ymax=ub), width=0.02,
-   #               position=position_jitter(seed=123, width=0.02)) +
-  geom_line(data=rel_inf_smear_sa_all, 
-            aes(x=rr_s, y=mu, color=country), alpha=0.25, size=1) +
-  geom_line(data=rel_inf_smear_sa_all, 
-            aes(x=rr_s, y=mu, color=country, linetype=country), size=1) +
-  geom_hline(aes(yintercept=1)) +
-  geom_vline(aes(xintercept=0.7), linetype="dashed") +
-  geom_text(x=0.71, y=1.7, 
-            label="Base Estimate\n(70%)", 
-            color="black", size=3, fontface=1, hjust=0) +
-  scale_y_continuous(expand=expansion(mult=c(.05, .05))) +
-  scale_x_continuous(expand=expansion(mult=c(0, 0)),
-                     breaks=c(0.25, 0.5, 0.75, 1),
-                     labels=scales::percent_format(accuracy=1)) +
-  scale_color_manual(values=colors_c[sort(unique(rel_inf_smear_all$country))]) +
-  scale_linetype_manual(values=c("dashed", "dotted", "longdash", "solid", "twodash")) +
-  labs(x="Relative infectiousness of subclinical (vs. symptomatic) TB", 
-       y="Relative cumulative\nsecondary infections",
-       fill="", color="", linetype="") +
-  theme_bw() + theme(panel.grid=element_blank()) + 
-  ggtitle("B. Per-person contribution to transmission over 5 years,\nsmear-positive subclinical vs. smear-positive symptomatic") +
-  theme(plot.title=element_text(size=11, face="bold"),
-        axis.title=element_text(size=10),
-        plot.margin = unit(c(0.5,0,0,0), "cm"),
-        legend.key.width=unit(1, "cm"))
-#BOTTOM PANEL: stacked bar charts
-prop_pop <- prop_trans_sum_all %>% 
-  select(country, name, starts_with("pop_lab"), starts_with("pop_prop"))
-prop_trans <- prop_trans_sum_all %>% 
-  select(country, name, starts_with("lab"), starts_with("prop_trans")) 
-fig4 <- ggplot(prop_pop) + 
-  geom_col(aes(x=country, y=pop_prop, fill=fct_rev(name)), 
-           width=0.95, position="stack") +
-  geom_text(aes(x=country, y=pop_prop, 
-                label=fct_rev(pop_lab2)), 
-            position=position_stack(vjust=0.5), size=3, fontface=1, color="white") +
-  scale_y_continuous(expand=expansion(mult=c(0, 0)),
-                     labels=scales::percent_format(accuracy=1)) +
-  scale_fill_manual(values=colors_s) + scale_color_manual(values=c("white", "black", "black", "black")) +
-  labs(x="", y="", fill="Initial TB state", color="", group="") +
-  ggtitle("C. Population contribution to\nTB prevalence") +
-  guides(color="none") +
-  theme_bw() + theme(panel.grid=element_blank()) +
-  theme(plot.title=element_text(size=11, face="bold"),
-        legend.margin=margin(t=0, unit="cm"),
-        axis.title=element_blank(),
-        plot.margin = unit(c(0.5,0,0,0), "cm"))
-
-fig5 <- ggplot(prop_trans) + 
-  geom_col(aes(x=country, y=prop_trans_mu, fill=fct_rev(name)),
-               width=0.95, position="stack") +
-  geom_text(aes(x=country, y=prop_trans_mu, 
-                label=fct_rev(lab2)), 
-            position=position_stack(vjust=0.5), size=3, fontface=1, color="white") +
-  scale_y_continuous(expand=expansion(mult=c(0, 0)),
-                     labels=scales::percent_format(accuracy=1)) +
-  scale_fill_manual(values=colors_s) + scale_color_manual(values=c("white", "black", "black", "black")) +
-  labs(x="", y="", fill="Initial TB state", color="", group="") +
-  ggtitle("D. Population contribution to\ncumulative 5-year transmission") +
-  guides(color="none") +
-  theme_bw() + theme(panel.grid=element_blank()) +
-  theme(plot.title=element_text(size=11, face="bold"),
-        legend.margin=margin(t=0, unit="cm"),
-        axis.title=element_blank(),
-        plot.margin = unit(c(0.5,0.2,0,0), "cm"),
-        axis.text.y=element_blank(), axis.ticks.y=element_blank())
-plot_bottom <- plot_grid(fig4 + theme(legend.position="none"),
-                         fig5 + theme(legend.position="none"),
-                         nrow=1, ncol=2, align="hv")
-#combine all panels
-plot <- plot_grid(get_legend(fig4+theme(legend.position="bottom")),
-                  plot_top, fig3, plot_bottom, 
-                  nrow=4, ncol=1, align="hv",
-                  rel_heights=c(0.1, 0.7, 0.5, 0.5))
-ggsave(plot, filename=paste0(path_out, "/rel_inf.jpg"), 
-       dpi=500, height=11, width=7.5)

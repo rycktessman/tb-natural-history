@@ -25,7 +25,7 @@ pull_targets <- function(calib_type, targets_all, country) {
                "prop_s"="% Cases Smear- & Symptomatic",
                "prop_ms"="% Cases Smear+ & Symptomatic",
                "pnr_m_all"="Smear+ Prevalence:Notifications",
-               "deaths_tb"="Unreated TB Deaths/1000 cases",
+               "deaths_tb"="Unreated TB Deaths per Case",
                "prop_m_notif"="% Notifications Smear+")
   } else if(calib_type=="prev" & country %in% c("Vietnam", "Nepal", "Bangladesh")) {
     targets <- targets_all[1:7]
@@ -34,7 +34,7 @@ pull_targets <- function(calib_type, targets_all, country) {
                "prop_s"="% Cases Smear- & Symptomatic",
                "prop_ms"="% Cases Smear+ & Symptomatic",
                "pnr_all"="Prevalence:Notifications",
-               "deaths_tb"="Unreated TB Deaths/1000 cases",
+               "deaths_tb"="Unreated TB Deaths per Case",
                "prop_m_notif"="% Notifications Smear+")
   } else {
     targets <- NA

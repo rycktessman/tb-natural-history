@@ -23,6 +23,7 @@ RR_free <- 0 #4 free RR parameters in this version
 spont_progress <- 0 #whether those who have spontaneously resolved can progress back to smear- symptom- TB
 spont_prog <- 0.15 #what probability to use if spont_progress is 1
 smear_hist_calib <- 0 #whether to include historical targets on bacillary status over time
+deaths_targets <- "ihme" #or "ihme" or use ihme targets
 no_10yr_hist <- 0 #whether to include 10 year historical survival as calibration targets
 start_pop <- as.numeric(Sys.getenv('start_pop')) #1=smear-/symptom-, 2=smear+/symptom-, 3=smear-/symptom+, 4=smear+/symptom+
 
@@ -41,10 +42,13 @@ if(spont_progress==1) {
 if(smear_hist_calib==1) {
   path_out <- paste0(path_out, "_smearhist")
 }
+if(deaths_targets=="ihme") {
+  path_out <- paste0(path_out, "_ihmedeaths")
+}
 if(no_10yr_hist==1) {
   path_out <- paste0(path_out, "_no10")
 }
-if(RR_free==0 & spont_progress==0 & smear_hist_calib==0 & no_10yr_hist==0) {
+if(RR_free==0 & spont_progress==0 & smear_hist_calib==0 & no_10yr_hist==0 & deaths_targets=="base") {
   path_out <- paste0(path_out, "_base")
 }
 path_out <- paste0(path_out, "/")

@@ -16,8 +16,9 @@ RR_free <- 0 #4 free RR parameters in this version
 spont_progress <- 0 #whether those who have spontaneously resolved can progress back to smear- symptom- TB
 spont_prog <- 0.15 #what probability to use if spont_progress is 1
 smear_hist_calib <- 0 #whether to include historical targets on bacillary status over time
+deaths_targets <- "ihme" #or "ihme" or use ihme targets
 no_10yr_hist <- 0 #whether to include 10 year historical survival as calibration targets
-flag_symptom_dur <- 0 #don't exclude parameter sets where less than 80-90% spend >2 weeks symptomatic
+flag_symptom_dur <- 0 
 cyc_len <- 1/12 #weekly or monthly timestep
 
 #load files and implement options
@@ -61,6 +62,12 @@ if(smear_hist_calib==1) {
   targets_all[["alive_4yr_3"]] <- 57
   path_out <- paste0(path_out, "_smearhist")
 }
+if(deaths_targets=="ihme") {
+  load("data/mort_to_prev_ihme.Rda")
+  mort_samples <- mort_samples_ihme[[country]]
+  path_out <- paste0(path_out, "_ihmedeaths")
+  
+}
 if(no_10yr_hist==1) {
   #version without the 10-year mortality targets
   calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
@@ -71,7 +78,7 @@ if(no_10yr_hist==1) {
   }
   path_out <- paste0(path_out, "_no10")
 }
-if(RR_free==0 & spont_progress==0 & smear_hist_calib==0 & no_10yr_hist==0) {
+if(RR_free==0 & spont_progress==0 & smear_hist_calib==0 & no_10yr_hist==0 & deaths_targets=="base") {
   path_out <- paste0(path_out, "_base")
 }
 path_out <- paste0(path_out, "/")
