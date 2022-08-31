@@ -14,12 +14,11 @@ path_out <- "output/main/"
 source("code/calib_functions.R")
 load("data/params_all.Rda")
 
-RR_free <- 0 #whether a_r_s and a_p_s vary from a_r_m and a_p_m
+RR_free <- 1 #whether a_r_s and a_p_s vary from a_r_m and a_p_m
 spont_progress <- 0 #whether those who have spontaneously resolved can progress back to smear- symptom- TB
 spont_prog <- 0.15 #annual probability of returning from resolved (if spont_progress==1)
 smear_hist_calib <- 0 #whether to include historical targets on bacillary status over time
 no_10yr_hist <- 0 #whether to include 10 year historical survival as calibration targets
-country <- "Philippines"
 
 #param names and labels for graphing
 param_names <- c("Smear Progression", "Symptom Progression", 
@@ -36,8 +35,12 @@ names(param_names) <- c("p_m", "p_s",
                         "c_sp")
 
 #colors for countries
-countries <- c("Philippines", "Vietnam", 
-               "Bangladesh", "Nepal", "Cambodia")
+countries <- c("Philippines", 
+               "Vietnam", 
+               "Bangladesh", 
+               "Nepal", 
+               "Cambodia"
+               )
 colors_c <- c(hue_pal()(5), "darkgrey")
 names(colors_c) <- c(countries, "Prior")
 
@@ -85,13 +88,17 @@ names(mults) <- names(names)
 #options for sensitivity analyses
 scenario_lab <- "_base"
 if(RR_free==1) {
-    priors_prev_lb <- priors_prev_lb_RRfree
-    priors_prev_ub <- priors_prev_ub_RRfree
-    params_calib_prev <- params_calib_prev_RRfree
-    params_calib_hist <- params_calib_hist_RRfree
-    names_params_calib <- names_params_calib_RRfree
-    param_names <- param_names_RRfree
-    scenario_lab <- "_RRfree"
+    priors_prev_lb <- c(priors_prev_lb, "a_p_s"=priors_prev_lb$a_p_m, "a_r_s"=priors_prev_lb$a_r_m)
+    priors_prev_ub <- c(priors_prev_ub, "a_p_s"=priors_prev_ub$a_p_m, "a_r_s"=priors_prev_ub$a_r_m)
+    names_params_calib <- c(names_params_calib, "a_p_s"="Progression Multiplier (symptoms)",
+                            "a_r_s"="Regression Multiplier (symptoms)")
+    names_params_calib[["a_r_m"]] <- "Regression Multiplier (smear)"
+    names_params_calib[["a_p_m"]] <- "Progression Multiplier (smear)"
+    param_names <- c(param_names, "a_p_s"="Progression Rel. Risk (symptom)",
+                     "a_r_s"="Regression Rel. Risk (symptom)")
+    param_names[["a_r_m"]] <- "Regression Rel. Risk (smear)"
+    param_names[["a_p_m"]] <- "Progression Rel. Risk (smear)"
+    scenario_lab <- "_rrfree"
 }
 if(spont_progress==1) {
     params_fixed_prev[["p_c"]] <- 1-exp(log(1-spont_prog)/12) #monthly probability corresponding to annual probability of 3%
@@ -149,8 +156,8 @@ ess_each <- bind_cols(ess_each)
 names(ess_each) <- countries
 
 #FIGURE 2: PRIOR AND POSTERIOR DISTRIBUTIONS BY COUNTRY
-out_params <- out_post_all %>% select(names(params_calib_prev), country)
-out_params <- bind_rows(out_params, out_prior %>% select(names(params_calib_prev), country))
+out_params <- out_post_all %>% select(names(names_params_calib), country)
+out_params <- bind_rows(out_params, out_prior %>% select(names(names_params_calib), country))
 out_params <- out_params %>% mutate(m_tb_m=m_tb*a_m, c_tx_m=c_tx*a_tx) %>% select(-c(a_m, a_tx))
 out_params <- out_params %>% mutate(country=factor(country, levels=c(sort(countries), "Prior")))
 param_plots <- list()
@@ -171,10 +178,10 @@ for(i in names(param_names)) {
     if(i=="c_sp") {
         bw <- 0.015
     }
-    if(i %in% c("a_p_m")) {
+    if(i %in% c("a_p_m", "a_p_s")) {
         bw <- 0.6
     }
-    if(i %in% c("a_r_m")) {
+    if(i %in% c("a_r_m", "a_r_s")) {
         bw <- 0.025
     }
     if(i=="c_tx_m") {
@@ -223,10 +230,11 @@ for(i in names(param_names)) {
     }
     param_plots[[i]] <- plot
 }
-fig <- ggarrange(plotlist=param_plots, align="hv", ncol=4, nrow=3, common.legend=F)
+fig <- plot_grid(plotlist=param_plots, align="hv", ncol=4)
 fig2 <- annotate_figure(fig, left=text_grob("Density", size=9, rot=90), 
                         bottom=text_grob("Monthly Values", size=9))
-ggsave(fig2, filename=paste0(path_out, "param_post_countries_ridges.jpg"), dpi=500, height=8.5, width=10)
+ggsave(fig2, filename=paste0(path_out, "param_post_countries_ridges", scenario_lab, ".jpg"), 
+       dpi=500, height=8.5, width=10)
 
 #version for slides with different dimensions and no country axis
 if(FALSE) {
@@ -325,7 +333,7 @@ out_post_sum <- out_post_sum %>% group_by(country, param) %>%
               q90=quantile(value, probs=0.9),
               q95=quantile(value, probs=0.95)) 
 out_post_sum <- out_post_sum %>% arrange(param, country)
-write.csv(out_post_sum, file=paste0(path_out, "calib_summary.csv"), row.names=F)
+write.csv(out_post_sum, file=paste0(path_out, "calib_summary", scenario_lab, ".csv"), row.names=F)
 
 #TARGET MEANS/CIs AND POSTERIOR OUTPUT BY COUNTRY
 out_targets <- out_post_all %>% mutate(pnr=if_else(country %in% c("Philippines", "Cambodia"), pnr_m_all, pnr_all)) #combine PNR into 1 column
@@ -359,7 +367,8 @@ for(i in names(names)) {
     target_plots[[i]] <- plot
 }
 fig <- ggarrange(plotlist=target_plots, align="hv", ncol=3, nrow=4, common.legend=F)
-ggsave(fig, filename=paste0(path_out, "targets_post_countries_ridges.jpg"), dpi=500, height=10, width=8.5)
+ggsave(fig, filename=paste0(path_out, "targets_post_countries_ridges", scenario_lab, ".jpg"), 
+       dpi=500, height=10, width=8.5)
 
 #version for slides with different dimensions and no country axis
 if(FALSE) {
@@ -406,7 +415,7 @@ ggplot(out_post_temp, aes(x=factor(chain2), y=log_like)) +
     labs(x="Chain", y="Log Likelihood") +
     scale_x_discrete(breaks=as.character(c(10, 20, 30, 40, 50))) +
     theme_bw() + theme(panel.grid=element_blank())
-ggsave(paste0(path_out, "log_like_box_countries.jpg"), dpi=500, height=10, width=7)
+ggsave(paste0(path_out, "log_like_box_countries", scenario_lab, ".jpg"), dpi=500, height=10, width=7)
 
 #ESS by country
 ess_all
