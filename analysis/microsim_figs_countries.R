@@ -1019,7 +1019,7 @@ write.csv(props_out, file=paste0(path_out, "/rel_inf_pop_table_", scenario_lab, 
 
 
   
-#TOP PANEL - rel_inf distributions for each state and country
+#graphs (main text figure 4)
 if(scenario_lab=="base")  {   #don't need this figure for sensitivity analyses - just use the tables
   #labels for graphs
   rel_inf_out_long <- pivot_longer(rel_inf_out, cols=sort(countries),

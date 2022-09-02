@@ -14,10 +14,11 @@ path_out <- "output/main/"
 source("code/calib_functions.R")
 load("data/params_all.Rda")
 
-RR_free <- 1 #whether a_r_s and a_p_s vary from a_r_m and a_p_m
+RR_free <- 0 #whether a_r_s and a_p_s vary from a_r_m and a_p_m
 spont_progress <- 0 #whether those who have spontaneously resolved can progress back to smear- symptom- TB
 spont_prog <- 0.15 #annual probability of returning from resolved (if spont_progress==1)
 smear_hist_calib <- 0 #whether to include historical targets on bacillary status over time
+deaths_targets <- "ihme" #"base" or "ihme" to use ihme targets
 no_10yr_hist <- 0 #whether to include 10 year historical survival as calibration targets
 
 #param names and labels for graphing
@@ -48,12 +49,20 @@ names(colors_c) <- c(countries, "Prior")
 target_means <- list()
 target_lbs <- list()
 target_ubs <- list()
+if(deaths_targets=="ihme") {
+    load("data/mort_to_prev_ihme.Rda")
+}
 for(i in countries) {
     print(i)
     load(paste0("data/targets_", tolower(i), ".Rda"))
     target_means[[i]] <- targets_all
     target_lbs[[i]] <- targets_all_lb
     target_ubs[[i]] <- targets_all_ub
+    if(deaths_targets=="ihme") {
+        target_means[[i]][["deaths_tb_ihme"]] <- mort_to_prev_mu[[i]]/100
+        target_lbs[[i]][["deaths_tb_ihme"]] <- mort_to_prev_lb[[i]]/100
+        target_ubs[[i]][["deaths_tb_ihme"]] <- mort_to_prev_ub[[i]]/100
+    }
 }
 target_means <- bind_rows(target_means, .id="country")
 target_means <- target_means %>% 
@@ -120,6 +129,9 @@ if(smear_hist_calib==1) {
     mults <- c(mults, 100)
     names(mults) <- names(names)
     scenario_lab <- "_smearhist"
+}
+if(deaths_targets=="ihme") {
+    scenario_lab <- "_ihmedeaths"
 }
 if(no_10yr_hist==1) {
     scenario_lab <- "_no10"
@@ -363,6 +375,12 @@ for(i in names(names)) {
               plot.margin = margin(5.5, 10, 5.5, 5.5))
     if(i!="pnr") {
         plot <- plot + scale_x_continuous(expand=expansion(mult=0.02), labels = scales::percent_format(accuracy=1)) 
+    }
+    if(deaths_targets=="ihme" & i=="deaths_tb") {
+        plot <- plot + 
+            geom_segment(data=target_means, aes(x=deaths_tb_ihme, xend=deaths_tb_ihme, y=country_num, yend=country_num_end), color="red") +
+            geom_segment(data=target_lbs, aes(x=deaths_tb_ihme, xend=deaths_tb_ihme, y=country_num, yend=country_num_end), color="red", linetype="dashed") +
+            geom_segment(data=target_ubs, aes(x=deaths_tb_ihme, xend=deaths_tb_ihme, y=country_num, yend=country_num_end), color="red", linetype="dashed")
     }
     target_plots[[i]] <- plot
 }
