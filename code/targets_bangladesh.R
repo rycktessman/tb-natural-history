@@ -60,9 +60,9 @@ notif_labconf <- 102000*113948/(43078+113948) #notifications in prev survey, usi
 pop_adult <- 110508000 #adult pop in 2018 from WPP
 #parameterize prevalence and notifications distribution
 prev_samples <- rbinom(n=100000, size=60000, prob=prev)/60000 #chosen to match lb and ub in the prev survey
-prop_clindx_tb_lb <- 79/3077  #% of CXR+ symptom+ from the survey that were TB+
-prop_clindx_tb_mean <- 0.25 #roughly similar to of what's used in other countries
-prop_clindx_tb_samples <- rbeta(n=100000, shape1=2.5, shape2=7.5) #chosen to match mean and lower bound above
+#prop_clindx_tb_lb <- 79/3077  #% of CXR+ symptom+ from the survey that were TB+
+#prop_clindx_tb_mean <- 0.25 #roughly similar to of what's used in other countries
+prop_clindx_tb_samples <- rbeta(n=100000, shape1=6.25, shape2=10.42) #chosen to match mean and lower bound above
 notif_samples <- notif_labconf + notif_clindx*prop_clindx_tb_samples #adjust clinical dx for those that aren't truly TB
 pnr_samples <- prev_samples/(notif_samples/pop_adult)
 #add to targets 
@@ -121,7 +121,7 @@ targets_all_ub[["deaths_tb"]] <- deaths_untx_per_case_ub
 #adjust for bacteriologically-confirmed that are smear negative (from Xpert)
 notif_xpert <-0 #only 611 ppl got a rapid diagnostic in 2017, so assume 0 in 2015 (newinc_rdx in notifications data)
 pxpertpos_testtreat_samples <- rbeta(n=100000, shape1=5.5, shape2=0.69) #to match mean 90%, LB 57%, UB 100%
-psmearpos_xpertpos_samples <- rbeta(n=100000, shape1=10, shape2=12.27) #to match mean 44%, LB 26%, UB 68%
+psmearpos_xpertpos_samples <- rbeta(n=100000, shape1=24, shape2=16)
 pnosmear_clindx_samples <- rbeta(n=100000, shape1=10, shape2=90) #WHO 2019 TB report indicates 100% of testing sites are covered by smear microscopy, but add some uncertainty here
 psmearpos_TBnosmearclindx_samples <- rbeta(n=100000, shape1=52/7, shape2=25/7) #lb=38% smear+ in prev survey, ub= 92% mean (notif_labconf - notif_xpert_smearneg / notif_TB)
 notif_xpert_smearneg <- notif_xpert*pxpertpos_testtreat_samples*(1-psmearpos_xpertpos_samples)
@@ -144,9 +144,7 @@ notif_clindx_smearpos <- notif_clindx*pnosmear_clindx_samples*pTB_clindx_sorted*
 notif_smearpos <- notif_labconf - notif_xpert_smearneg + notif_clindx_smearpos
 notif_TB <- notif_labconf + notif_clindx*prop_clindx_tb_samples
 prop_m_notif <- notif_smearpos/notif_TB
-#add random noise to achieve 5% widening of the 2.5 and 97.5th CIs given uncertainty in this target
-prop_m_notif <- prop_m_notif + rnorm(1000000, mean=0, sd=0.05) 
-#truncate at 0% and 100% (this doesn't actually affect any samples)
+#truncate at 0% and 100%
 prop_m_notif[prop_m_notif>1] <- 1
 prop_m_notif[prop_m_notif<0] <- 0
 #convert to prob of each probability and smooth to use as empirical distribution

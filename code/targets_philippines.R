@@ -120,7 +120,7 @@ notif_xpert <- 41759 #no uncertainty
 notif_clindx <- 200572
 #adjust for bacteriologically-confirmed that are smear negative (from Xpert)
 pxpertpos_testtreat_samples <- rbeta(n=1000000, shape1=5.5, shape2=0.69) #to match mean 90%, LB 57%, UB 100%
-psmearpos_xpertpos_samples <- rbeta(n=1000000, shape1=10, shape2=12.27) #to match mean 44%, LB 26%, UB 68%
+psmearpos_xpertpos_samples <- rbeta(n=100000, shape1=24, shape2=16)
 notif_xpert_smearneg <- notif_xpert*pxpertpos_testtreat_samples*(1-psmearpos_xpertpos_samples)
 #adjust for private sector
 pprivate_samples <- rbeta(n=1000000, shape1=6.5, shape2=50) #to match mean 10-11%, LB 5-6%, UB 20-21% 
@@ -128,7 +128,7 @@ pnosmear_privateclindx_samples <- rbeta(n=1000000, shape1=22, shape2=(38-22)) #t
 ppublic_samples <- 1-pprivate_samples
 pnosmear_publicclindx_samples <- rnorm(n=1000000, mean=0.19, sd=0.19/2)
 pnosmear_publicclindx_samples[pnosmear_publicclindx_samples<0] <- 0 #truncate at 0%
-pTB_clindx_samples <- rbeta(n=1000000, shape1=3.4, shape2=7) #30ish% [10-61%] 61% comes from 61% fpr_clindx_est above and adding noise
+pTB_clindx_samples <- rbeta(n=1000000, shape1=8.3, shape2=8.3) #30ish% [10-61%] 61% comes from 61% fpr_clindx_est above and adding noise
 psmearpos_TBnosmearclindx_samples <- rbeta(n=1000000, shape1=54/3, shape2=(100-54)/3)
 #induce negative correlation between psmearpos_TBnosmearclindx_samples and pTB_nosmearclindx_samples based on correlation below
 notif_smearpos_tested_samples <- notif_labconf - 

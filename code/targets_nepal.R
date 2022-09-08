@@ -63,9 +63,9 @@ notif_child <- 880+507 #child notifications: newrel_m014+newrel_f014 - assume ne
 pop_adult <- 19555000 #adult pop in 2018 from WPP
 #parameterize prevalence and notifications distribution
 prev_samples <- rbinom(n=100000, size=15000, prob=prev)/15000 #sample size chosen to match lb and ub
-prop_clindx_tb_lb <- 59/1621  #% of CXR+ symptom+ from the survey that were TB+
-prop_clindx_tb_mean <- 85/360 #% of presumptive smear- TB cases that were Xpert+ in Nepal: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6937953/
-prop_clindx_tb_samples <- rbeta(n=100000, shape1=85/35, shape2=(360-85)/35) #matches mean and lower bound above
+#prop_clindx_tb_lb <- 59/1621  #% of CXR+ symptom+ from the survey that were TB+
+#prop_clindx_tb_mean <- 85/360 #% of presumptive smear- TB cases that were Xpert+ in Nepal: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6937953/
+prop_clindx_tb_samples <- rbeta(n=100000, shape1=12.2, shape2=24.8) #matches mean and lower bound above
 prop_child_remove <- rbeta(n=100000, shape1=1, shape2=1) #wide uncertainty here - child notifications are very small
 notif_samples <- notif_labconf + notif_clindx*prop_clindx_tb_samples - notif_child*prop_child_remove
 pnr_samples <- prev_samples/(notif_samples/pop_adult)
@@ -127,7 +127,7 @@ notif_xpert_ub <- 10199
 notif_xpert_samples <- runif(n=100000, min=notif_xpert_lb, max=notif_xpert_ub) #assume somewhere between no increase and doubling of Xpert usage from 2015-18
 #adjust for smear-negative Xpert lab-confirmed notifications
 pxpertpos_testtreat_samples <- rbeta(n=100000, shape1=5.5, shape2=0.69) #to match mean 90%, LB 57%, UB 100%
-psmearpos_xpertpos_samples <- rbeta(n=100000, shape1=10, shape2=12.27) #to match mean 44%, LB 26%, UB 68%
+psmearpos_xpertpos_samples <- rbeta(n=100000, shape1=24, shape2=16)
 #adjust for clinical diagnoses that aren't truly TB
 pnosmear_clindx_samples <- rbeta(n=100000, shape1=10, shape2=90) #publications and pre-2012 data indicate most TB gets smear-tested, but added some uncertainty here
 psmearpos_TBnosmearclindx_samples <- rbeta(n=100000, shape1=53/6, shape2=47/6) #lb=30% smear+ in prev survey, ub= 75% mean (notif_labconf - notif_xpert_smearneg / notif_TB)

@@ -79,10 +79,10 @@ notif_sn <- 7686 #new smear-negative pulmonary notifications, 2011 (new_sn) - th
 all_cxr_s <- 710 #total ppl screened w/ +CXR and +symptom screen
 case_cxr_s <- 88 #bac-confirmed TB cases w/ +CXR and +symptom screen
 #adjust for % clinical diagnoses that aren't truly TB
-prop_clindx_tb_lb <- case_cxr_s/all_cxr_s
-prop_clindx_tb_mean <- 0.254 #Cambodia-specific, PPV from cough>2wks in table 3: from https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0018502#s3
-prop_clindx_tb_ub <- 0.37 #ub from https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0018502#s3
-prop_clindx_tb_samples <- rbeta(n=100000, shape1=25/3, shape2=(100-25)/3) #to fit mean and CI above
+#prop_clindx_tb_lb <- case_cxr_s/all_cxr_s
+#prop_clindx_tb_mean <- 0.254 #Cambodia-specific, PPV from cough>2wks in table 3: from https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0018502#s3
+#prop_clindx_tb_ub <- 0.37 #ub from https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0018502#s3
+prop_clindx_tb_samples <- rbeta(n=100000, shape1=7.2, shape2=9.5) #to fit mean and CI above
 notif_sn_adj <- notif_sn*prop_clindx_tb_samples
 prop_m_notif <- notif_sp/(notif_sn_adj+notif_sp)
 #add random noise to achieve 5% widening of the 2.5 and 97.5th CIs given uncertainty in this target

@@ -63,7 +63,7 @@ notif_child <- (966+854+750+802)/2 #child notifications: newrel_m014+newrel_f014
 pop_adult <- (72749000+73405000)/2 #avg of adult pop in 17 and 18 from WPP
 #parameterize prevalence and notifications distribution
 prev_samples <- rbinom(n=100000, size=24000, prob=prev)/24000
-prop_clindx_tb_samples <- rbeta(n=100000, shape1=103/5, shape2=(299-103)/5) #from https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7157739/, adding more uncertainty
+prop_clindx_tb_samples <- rbeta(n=100000, shape1=103/20, shape2=(299-103)/20) #from https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7157739/, adding more uncertainty
 prop_child_remove <- rbeta(n=100000, shape1=1, shape2=1) #wide uncertainty here - child notifications are very small
 notif_samples <- notif_labconf + notif_clindx*prop_clindx_tb_samples - notif_child*prop_child_remove
 pnr_samples <- prev_samples/(notif_samples/pop_adult)
@@ -122,7 +122,7 @@ targets_all_ub[["deaths_tb"]] <- deaths_untx_per_case_ub
 #adjust for smear-neg Xpert positives among lab-confirmed notifications
 notif_xpert <- (26255+19916)/2 #newinc_rdx from 2017 and 2018 in WHO notifications spreadsheet
 pxpertpos_testtreat_samples <- rbeta(n=100000, shape1=5.5, shape2=0.69) #to match mean 90%, LB 57%, UB 100%
-psmearpos_xpertpos_samples <- rbeta(n=100000, shape1=10, shape2=12.27) #to match mean 44%, LB 26%, UB 68%
+psmearpos_xpertpos_samples <- rbeta(n=100000, shape1=24, shape2=16)
 #adjust for clinical diagnoses that aren't truly TB
 pnosmear_clindx_samples <- rbeta(n=100000, shape1=46/5, shape2=(257-46)/5) #based on https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7157739/
 psmearpos_TBnosmearclindx_samples <- rbeta(n=100000, shape1=35/4.5, shape2=44/4.5) #lb=smear+ in prev survey, ub=mean on (notif_labconf - notif_xpert_smearneg / notif_TB)
