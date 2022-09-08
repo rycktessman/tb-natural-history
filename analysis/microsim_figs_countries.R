@@ -16,7 +16,7 @@ setwd("~/GitHub/tb-natural-history")
 source("code/model_functions.R")
 source("code/calib_functions.R")
 path_out <- "output/main"
-scenario_lab <- "rrfree" #base, rrfree, spontprog, smearhist, no10
+scenario_lab <- "base" #base, rrconstrain, spontprog, smearhist, no10, smearnotif50
 
 #% by TB state for steady state calcs
 countries <- c("Philippines", "Vietnam", "Nepal", "Cambodia", "Bangladesh")
@@ -685,14 +685,22 @@ prop_trans_sum_all <- list()
 rel_inf_smear_all <- list()
 rel_smear_samples_all <- list()
 rel_inf_smear_sa_all <- list()
+#define rel infectiousness parameters
+rr_m_mu <- 0.35 #relative infectiousness of smear-, compared to smear+
+rr_s_mu <- 0.7 #relative infectiousness of subclinical, compared to symptomatic
+rr_m <- rbeta(n=100000, shape1=9.7, shape2=17.6) #fit to 35% [20-55%]
+rr_s <- rgamma(n=100000, shape=34, scale=0.021) #use gamma given skew: 70% [50-100%]
+rr_s[rr_s>1] <- 1
+inf_mu <- 1
+inf_m_mu <- inf_mu/rr_m_mu
+inf_s_mu <- inf_mu/rr_s_mu
+inf_ms_mu <- inf_m_mu/rr_s_mu
+inf <- 1
+inf_m <- inf/rr_m
+inf_s <- inf/rr_s 
+inf_ms <- inf_m/rr_s
+rel_inf_params <- data.frame("inf"=rep(1, 100000), "inf_m"=inf_m, "inf_s"=inf_s, "inf_ms"=inf_ms)
 for(i in countries) {
-  #define rel infectiousness parameters
-  rr_m <- 0.35 #relative infectiousness of smear-, compared to smear+
-  rr_s <- 0.7 #relative infectiousness of subclinical, compared to symptomatic
-  inf <- 1
-  inf_m <- inf/rr_m
-  inf_s <- inf/rr_s 
-  inf_ms <- inf_m/rr_s
   wts <- unname(unlist(steady_wts[[i]]))
   size <- sizes[[i]]
   times_all <- times_all_all[[i]]
@@ -723,6 +731,8 @@ for(i in countries) {
     #need to match IDs to calculate relative infections for each param set
     times_sub_state <- times_all_state %>% filter(id %in% ids_sub)
     times_sub_state <- left_join(times_sub_state, props, by="id")
+    #match relative infectiousness samples too - i.e. rel_inf is consistent among all ppl within a simulation, but varies across simulatinos
+    times_sub_state <- cbind(times_sub_state, rel_inf_params[1:nrow(times_sub_state),])
     
     #calculate steady state % of transmission
     times_sub_state <- times_sub_state %>% 
@@ -730,44 +740,45 @@ for(i in countries) {
     prop_trans_out[[j]] <- times_sub_state$prop_trans
     
     #only calculate relative infectiousness for pops 2-4 (1 is reference)
-    rel_inf_all <- (inf*times_sub_state$X1 + 
-                  inf_m*times_sub_state$X2 + 
-                  inf_s*times_sub_state$X3 + 
-                  inf_ms*times_sub_state$X4)/(inf*times_sub_1$X1 + 
-                                                inf_m*times_sub_1$X2 + 
-                                                inf_s*times_sub_1$X3 + 
-                                                inf_ms*times_sub_1$X4)
+    rel_inf_all <- (times_sub_state$inf*times_sub_state$X1 + 
+                      times_sub_state$inf_m*times_sub_state$X2 + 
+                      times_sub_state$inf_s*times_sub_state$X3 + 
+                      times_sub_state$inf_ms*times_sub_state$X4)/(
+                        times_sub_state$inf*times_sub_1$X1 + 
+                          times_sub_state$inf_m*times_sub_1$X2 + 
+                          times_sub_state$inf_s*times_sub_1$X3 + 
+                          times_sub_state$inf_ms*times_sub_1$X4)
     if(j!=1) {
-      rel_inf_mu <- wtd.mean(x=(inf*times_sub_state$X1 + 
-                                  inf_m*times_sub_state$X2 + 
-                                  inf_s*times_sub_state$X3 + 
-                                  inf_ms*times_sub_state$X4)/
-                               (inf*times_sub_1$X1 + 
-                                  inf_m*times_sub_1$X2 + 
-                                  inf_s*times_sub_1$X3 + 
-                                  inf_ms*times_sub_1$X4),
+      rel_inf_mu <- wtd.mean(x=(times_sub_state$inf*times_sub_state$X1 + 
+                                  times_sub_state$inf_m*times_sub_state$X2 + 
+                                  times_sub_state$inf_s*times_sub_state$X3 + 
+                                  times_sub_state$inf_ms*times_sub_state$X4)/
+                               (times_sub_state$inf*times_sub_1$X1 + 
+                                  times_sub_state$inf_m*times_sub_1$X2 + 
+                                  times_sub_state$inf_s*times_sub_1$X3 + 
+                                  times_sub_state$inf_ms*times_sub_1$X4),
                              weight=times_sub_state$weight)
       
-      rel_inf_lb <- wtd.quantile(x=(inf*times_sub_state$X1 + 
-                                      inf_m*times_sub_state$X2 + 
-                                      inf_s*times_sub_state$X3 + 
-                                      inf_ms*times_sub_state$X4)/
-                                   (inf*times_sub_1$X1 + 
-                                      inf_m*times_sub_1$X2 + 
-                                      inf_s*times_sub_1$X3 + 
-                                      inf_ms*times_sub_1$X4),
+      rel_inf_lb <- wtd.quantile(x=(times_sub_state$inf*times_sub_state$X1 + 
+                                      times_sub_state$inf_m*times_sub_state$X2 + 
+                                      times_sub_state$inf_s*times_sub_state$X3 + 
+                                      times_sub_state$inf_ms*times_sub_state$X4)/
+                                   (times_sub_state$inf*times_sub_1$X1 + 
+                                      times_sub_state$inf_m*times_sub_1$X2 + 
+                                      times_sub_state$inf_s*times_sub_1$X3 + 
+                                      times_sub_state$inf_ms*times_sub_1$X4),
                                  probs=0.025,
                                  weight=times_sub_state$weight,
                                  normwt=T)[[1]]
       
-      rel_inf_ub <- wtd.quantile(x=(inf*times_sub_state$X1 + 
-                                      inf_m*times_sub_state$X2 + 
-                                      inf_s*times_sub_state$X3 + 
-                                      inf_ms*times_sub_state$X4)/
-                                   (inf*times_sub_1$X1 + 
-                                      inf_m*times_sub_1$X2 + 
-                                      inf_s*times_sub_1$X3 + 
-                                      inf_ms*times_sub_1$X4),
+      rel_inf_ub <- wtd.quantile(x=(times_sub_state$inf*times_sub_state$X1 + 
+                                      times_sub_state$inf_m*times_sub_state$X2 + 
+                                      times_sub_state$inf_s*times_sub_state$X3 + 
+                                      times_sub_state$inf_ms*times_sub_state$X4)/
+                                   (times_sub_state$inf*times_sub_1$X1 + 
+                                      times_sub_state$inf_m*times_sub_1$X2 + 
+                                      times_sub_state$inf_s*times_sub_1$X3 + 
+                                      times_sub_state$inf_ms*times_sub_1$X4),
                                  probs=0.975,
                                  weight=times_sub_state$weight,
                                  normwt=T)[[1]]
@@ -855,45 +866,45 @@ for(i in countries) {
   times_all_4 <- (times_all %>% filter(start_pop==4))[["mean"]]
   times_sub_2 <- times_all_2 %>% filter(id %in% ids_sub)
   times_sub_4 <- times_all_4 %>% filter(id %in% ids_sub)
-  rel_smear_samples <- (inf*times_sub_2$X1 + 
-                          inf_m*times_sub_2$X2 + 
-                          inf_s*times_sub_2$X3 + 
-                          inf_ms*times_sub_2$X4)/
-    (inf*times_sub_4$X1 + 
-       inf_m*times_sub_4$X2 + 
-       inf_s*times_sub_4$X3 + 
-       inf_ms*times_sub_4$X4)
+  rel_smear_samples <- (times_sub_state$inf*times_sub_2$X1 + 
+                          times_sub_state$inf_m*times_sub_2$X2 + 
+                          times_sub_state$inf_s*times_sub_2$X3 + 
+                          times_sub_state$inf_ms*times_sub_2$X4)/
+    (times_sub_state$inf*times_sub_4$X1 + 
+       times_sub_state$inf_m*times_sub_4$X2 + 
+       times_sub_state$inf_s*times_sub_4$X3 + 
+       times_sub_state$inf_ms*times_sub_4$X4)
   
-  rel_inf_mu <- wtd.mean(x=(inf*times_sub_2$X1 + 
-                              inf_m*times_sub_2$X2 + 
-                              inf_s*times_sub_2$X3 + 
-                              inf_ms*times_sub_2$X4)/
-                           (inf*times_sub_4$X1 + 
-                              inf_m*times_sub_4$X2 + 
-                              inf_s*times_sub_4$X3 + 
-                              inf_ms*times_sub_4$X4),
+  rel_inf_mu <- wtd.mean(x=(times_sub_state$inf*times_sub_2$X1 + 
+                              times_sub_state$inf_m*times_sub_2$X2 + 
+                              times_sub_state$inf_s*times_sub_2$X3 + 
+                              times_sub_state$inf_ms*times_sub_2$X4)/
+                           (times_sub_state$inf*times_sub_4$X1 + 
+                              times_sub_state$inf_m*times_sub_4$X2 + 
+                              times_sub_state$inf_s*times_sub_4$X3 + 
+                              times_sub_state$inf_ms*times_sub_4$X4),
                          weight=times_sub_2$weight)
   
-  rel_inf_lb <- wtd.quantile(x=(inf*times_sub_2$X1 + 
-                                  inf_m*times_sub_2$X2 + 
-                                  inf_s*times_sub_2$X3 + 
-                                  inf_ms*times_sub_2$X4)/
-                               (inf*times_sub_4$X1 + 
-                                  inf_m*times_sub_4$X2 + 
-                                  inf_s*times_sub_4$X3 + 
-                                  inf_ms*times_sub_4$X4),
+  rel_inf_lb <- wtd.quantile(x=(times_sub_state$inf*times_sub_2$X1 + 
+                                  times_sub_state$inf_m*times_sub_2$X2 + 
+                                  times_sub_state$inf_s*times_sub_2$X3 + 
+                                  times_sub_state$inf_ms*times_sub_2$X4)/
+                               (times_sub_state$inf*times_sub_4$X1 + 
+                                  times_sub_state$inf_m*times_sub_4$X2 + 
+                                  times_sub_state$inf_s*times_sub_4$X3 + 
+                                  times_sub_state$inf_ms*times_sub_4$X4),
                              probs=0.025,
                              weight=times_sub_2$weight,
                              normwt=T)[[1]]
   
-  rel_inf_ub <- wtd.quantile(x=(inf*times_sub_2$X1 + 
-                                  inf_m*times_sub_2$X2 + 
-                                  inf_s*times_sub_2$X3 + 
-                                  inf_ms*times_sub_2$X4)/
-                               (inf*times_sub_4$X1 + 
-                                  inf_m*times_sub_4$X2 + 
-                                  inf_s*times_sub_4$X3 + 
-                                  inf_ms*times_sub_4$X4),
+  rel_inf_ub <- wtd.quantile(x=(times_sub_state$inf*times_sub_2$X1 + 
+                                  times_sub_state$inf_m*times_sub_2$X2 + 
+                                  times_sub_state$inf_s*times_sub_2$X3 + 
+                                  times_sub_state$inf_ms*times_sub_2$X4)/
+                               (times_sub_state$inf*times_sub_4$X1 + 
+                                  times_sub_state$inf_m*times_sub_4$X2 + 
+                                  times_sub_state$inf_s*times_sub_4$X3 + 
+                                  times_sub_state$inf_ms*times_sub_4$X4),
                              probs=0.975,
                              weight=times_sub_2$weight,
                              normwt=T)[[1]]
@@ -904,43 +915,42 @@ for(i in countries) {
   #sensitivity analysis on (smear+) subclinical vs. (smear+) symptomatic
   rel_inf_smear_sa <- list()
   for(rr_s in (1:100)/100) {
-    inf_m <- inf/rr_m
-    inf_s <- inf/rr_s 
-    inf_ms <- inf_m/rr_s
+    inf_s_mu <- inf_mu/rr_s 
+    inf_ms_mu <- inf_m_mu/rr_s
     ids_2 <- unique(times_all_2$id)
     ids_4 <- unique(times_all_4$id)
     times_sub_2 <- times_all_2 %>% filter(id %in% ids_4)
     times_sub_4 <- times_all_4 %>% filter(id %in% ids_2)
-    rel_inf_mu <- wtd.mean(x=(inf*times_sub_2$X1 + 
-                                inf_m*times_sub_2$X2 + 
-                                inf_s*times_sub_2$X3 + 
-                                inf_ms*times_sub_2$X4)/
-                             (inf*times_sub_4$X1 + 
-                                inf_m*times_sub_4$X2 + 
-                                inf_s*times_sub_4$X3 + 
-                                inf_ms*times_sub_4$X4),
+    rel_inf_mu <- wtd.mean(x=(inf_mu*times_sub_2$X1 + 
+                                inf_m_mu*times_sub_2$X2 + 
+                                inf_s_mu*times_sub_2$X3 + 
+                                inf_ms_mu*times_sub_2$X4)/
+                             (inf_mu*times_sub_4$X1 + 
+                                inf_m_mu*times_sub_4$X2 + 
+                                inf_s_mu*times_sub_4$X3 + 
+                                inf_ms_mu*times_sub_4$X4),
                            weight=times_sub_2$weight)
     
-    rel_inf_lb <- wtd.quantile(x=(inf*times_sub_2$X1 + 
-                                    inf_m*times_sub_2$X2 + 
-                                    inf_s*times_sub_2$X3 + 
-                                    inf_ms*times_sub_2$X4)/
-                                 (inf*times_sub_4$X1 + 
-                                    inf_m*times_sub_4$X2 + 
-                                    inf_s*times_sub_4$X3 + 
-                                    inf_ms*times_sub_4$X4),
+    rel_inf_lb <- wtd.quantile(x=(inf_mu*times_sub_2$X1 + 
+                                    inf_m_mu*times_sub_2$X2 + 
+                                    inf_s_mu*times_sub_2$X3 + 
+                                    inf_ms_mu*times_sub_2$X4)/
+                                 (inf_mu*times_sub_4$X1 + 
+                                    inf_m_mu*times_sub_4$X2 + 
+                                    inf_s_mu*times_sub_4$X3 + 
+                                    inf_ms_mu*times_sub_4$X4),
                                probs=0.025,
                                weight=times_sub_2$weight,
                                normwt=T)[[1]]
     
-    rel_inf_ub <- wtd.quantile(x=(inf*times_sub_2$X1 + 
-                                    inf_m*times_sub_2$X2 + 
-                                    inf_s*times_sub_2$X3 + 
-                                    inf_ms*times_sub_2$X4)/
-                                 (inf*times_sub_4$X1 + 
-                                    inf_m*times_sub_4$X2 + 
-                                    inf_s*times_sub_4$X3 + 
-                                    inf_ms*times_sub_4$X4),
+    rel_inf_ub <- wtd.quantile(x=(inf_mu*times_sub_2$X1 + 
+                                    inf_m_mu*times_sub_2$X2 + 
+                                    inf_s_mu*times_sub_2$X3 + 
+                                    inf_ms_mu*times_sub_2$X4)/
+                                 (inf_mu*times_sub_4$X1 + 
+                                    inf_m_mu*times_sub_4$X2 + 
+                                    inf_s_mu*times_sub_4$X3 + 
+                                    inf_ms_mu*times_sub_4$X4),
                                probs=0.975,
                                weight=times_sub_2$weight,
                                normwt=T)[[1]]

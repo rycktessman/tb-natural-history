@@ -12,12 +12,13 @@ print(chain)
 print(country)
 
 #calibration options
-RR_free <- 0 #4 free RR parameters in this version
+RR_free <- 1 #4 free RR parameters in this version
 spont_progress <- 0 #whether those who have spontaneously resolved can progress back to smear- symptom- TB
 spont_prog <- 0.15 #what probability to use if spont_progress is 1
 smear_hist_calib <- 0 #whether to include historical targets on bacillary status over time
-deaths_targets <- "ihme" #or "ihme" or use ihme targets
+deaths_targets <- "base" #"base", or "ihme" or use ihme targets
 no_10yr_hist <- 0 #whether to include 10 year historical survival as calibration targets
+smear_notif_override <- NA #NA, or an alt estimate +/- 10% (uniformly distributed)
 flag_symptom_dur <- 0 
 cyc_len <- 1/12 #weekly or monthly timestep
 
@@ -36,7 +37,9 @@ if(RR_free==1) {
   params_calib_hist <- c(params_calib_hist, 
                          "a_p_s"=params_calib_hist[["a_p_m"]],
                          "a_r_s"=params_calib_hist[["a_r_m"]])
-  path_out <- paste0(path_out, "_rrfree")
+}
+if(RR_free==0) {
+  path_out <- paste0(path_out, "_rrconstrain")
 }
 if(spont_progress==1) {
   params_fixed_prev[["p_c"]] <- 1-exp(log(1-spont_prog)*cyc_len) #weekly probability corresponding to annual probability of 15%
@@ -48,7 +51,8 @@ if(smear_hist_calib==1) {
   calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases, 
                         prop_m_notif_smooth, pnr_params, calib_type, country) {
     like <- calc_like_smear_hist(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
-                                 prop_m_notif_smooth, pnr_params, calib_type, country)
+                                 prop_m_notif_smooth, pnr_params, smear_notif_overide, 
+                                 calib_type, country)
     return(like)
   }
   #sinding-larsen
@@ -71,14 +75,23 @@ if(deaths_targets=="ihme") {
 if(no_10yr_hist==1) {
   #version without the 10-year mortality targets
   calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
-                        prop_m_notif_smooth, pnr_params, calib_type, country) { #outputs, targets, and upper/lower confidence bounds on targets
+                        prop_m_notif_smooth, pnr_params, smear_notif_overide, 
+                        calib_type, country) { #outputs, targets, and upper/lower confidence bounds on targets
     like <- calc_like_no10(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
-                           prop_m_notif_smooth, pnr_params, calib_type, country)
+                           prop_m_notif_smooth, pnr_params, smear_notif_overide, 
+                           calib_type, country)
     return(like)
   }
   path_out <- paste0(path_out, "_no10")
 }
-if(RR_free==0 & spont_progress==0 & smear_hist_calib==0 & no_10yr_hist==0 & deaths_targets=="base") {
+if(!is.na(smear_notif_override)) {
+  targets_all[["prop_m_notif"]] <- smear_notif_override
+  targets_all_lb[["prop_m_notif"]] <- smear_notif_override - 0.1
+  targets_all_ub[["prop_m_notif"]] <- smear_notif_override + 0.1
+  path_out <- paste0(path_out, "_smearnotif", as.character(round(smear_notif_override*100)))
+}
+if(RR_free==1 & spont_progress==0 & smear_hist_calib==0 & no_10yr_hist==0 & deaths_targets=="base" &
+   is.na(smear_notif_override)) {
   path_out <- paste0(path_out, "_base")
 }
 path_out <- paste0(path_out, "/")

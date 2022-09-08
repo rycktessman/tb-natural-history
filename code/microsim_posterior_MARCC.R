@@ -19,12 +19,13 @@ t_end <- 5/cyc_len #5 years
 n <- 50000 
 
 #microsim options to vary
-RR_free <- 0 #4 free RR parameters in this version
+RR_free <- 1 #4 free RR parameters in this version
 spont_progress <- 0 #whether those who have spontaneously resolved can progress back to smear- symptom- TB
 spont_prog <- 0.15 #what probability to use if spont_progress is 1
 smear_hist_calib <- 0 #whether to include historical targets on bacillary status over time
-deaths_targets <- "ihme" #or "ihme" or use ihme targets
+deaths_targets <- "base" #"base", or "ihme" or use ihme targets
 no_10yr_hist <- 0 #whether to include 10 year historical survival as calibration targets
+smear_notif_override <- NA #NA, or an alt estimate +/- 10% (uniformly distributed)
 start_pop <- as.numeric(Sys.getenv('start_pop')) #1=smear-/symptom-, 2=smear+/symptom-, 3=smear-/symptom+, 4=smear+/symptom+
 
 #load files 
@@ -33,8 +34,8 @@ load(paste0("data/targets_", tolower(country), ".Rda"))
 path_out <- paste0("output/", tolower(country))
 
 #file path
-if(RR_free==1) {
-  path_out <- paste0(path_out, "_rrfree")
+if(RR_free==0) {
+  path_out <- paste0(path_out, "_rrconstrain")
 } 
 if(spont_progress==1) {
   path_out <- paste0(path_out, "_spontprog")
@@ -48,7 +49,11 @@ if(deaths_targets=="ihme") {
 if(no_10yr_hist==1) {
   path_out <- paste0(path_out, "_no10")
 }
-if(RR_free==0 & spont_progress==0 & smear_hist_calib==0 & no_10yr_hist==0 & deaths_targets=="base") {
+if(!is.na(smear_notif_override)) {
+  path_out <- paste0(path_out, "_smearnotif", as.character(round(smear_notif_override*100)))
+}
+if(RR_free==1 & spont_progress==0 & smear_hist_calib==0 & no_10yr_hist==0 & deaths_targets=="base" &
+   is.na(smear_notif_override)) {
   path_out <- paste0(path_out, "_base")
 }
 path_out <- paste0(path_out, "/")

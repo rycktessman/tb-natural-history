@@ -343,7 +343,8 @@ calib_out <- function(params_calib, params_fixed, calib_type,
 
 #function to calculate the likelihood of observing calibration targets given model output
 calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
-                      prop_m_notif_smooth, pnr_params, calib_type, country) { #outputs, targets, and upper/lower confidence bounds on targets
+                      prop_m_notif_smooth, pnr_params, smear_notif_override,
+                      calib_type, country) { #outputs, targets, and upper/lower confidence bounds on targets
   if(calib_type=="prev") {
     #prevalence survey targets proportion of infections by smear/symptom status - we have actual sample size
     props_ms <- unlist(lapply(1:nrow(out), function(x) 
@@ -367,8 +368,13 @@ calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
     deaths_tb[(is.na(deaths_tb)|deaths_tb==-Inf) & !is.na(out[["deaths_tb"]])] <- 
         unlist(log(1/abs(round(out[(is.na(deaths_tb)|deaths_tb==-Inf) & !is.na(out[["deaths_tb"]]), 
                             "deaths_tb"]*1000)-max(unname(mort_samples)))/1000000)) 
-    #proportion of notifications that are smear-positive - use empirical distribution
-    prop_m_notif <- unname(log(prop_m_notif_smooth[as.character(round(out[["prop_m_notif"]]*100))]))
+    #proportion of notifications that are smear-positive - use empirical distribution unless overridden
+    if(is.na(smear_notif_override)) {
+      prop_m_notif <- unname(log(prop_m_notif_smooth[as.character(round(out[["prop_m_notif"]]*100))]))
+    } else {
+      prop_m_notif  <- dnorm(out[["prop_m_notif"]], mean=tr[["prop_m_notif"]],
+                             sd=(tr_ub[["prop_m_notif"]]-tr_lb[["prop_m_notif"]])/(2*1.96), log=T)
+    }
     
     if(country %in% c("Philippines", "Cambodia")) {
       log_like_all <- data.frame("props_ms"=props_ms,
@@ -403,9 +409,9 @@ calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
 }
 
 #version without the 10-year mortality targets
-#currently only works for Philippines
 calc_like_no10 <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
-                           prop_m_notif_smooth, pnr_params, calib_type, country) { #outputs, targets, and upper/lower confidence bounds on targets
+                           prop_m_notif_smooth, pnr_params, smear_notif_override,
+                           calib_type, country) { #outputs, targets, and upper/lower confidence bounds on targets
   if(calib_type=="prev") {
     #prevalence survey targets proportion of infections by smear/symptom status - we have actual sample size
     props_ms <- unlist(lapply(1:nrow(out), function(x) 
@@ -429,8 +435,13 @@ calc_like_no10 <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
     deaths_tb[(is.na(deaths_tb)|deaths_tb==-Inf) & !is.na(out[["deaths_tb"]])] <- 
       unlist(log(1/abs(round(out[(is.na(deaths_tb)|deaths_tb==-Inf) & !is.na(out[["deaths_tb"]]), 
                                  "deaths_tb"]*1000)-max(unname(mort_samples)))/1000000)) 
-    #proportion of notifications that are smear-positive - use empirical distribution
-    prop_m_notif <- unname(log(prop_m_notif_smooth[as.character(round(out[["prop_m_notif"]]*100))]))
+    #proportion of notifications that are smear-positive - use empirical distribution unless overridden
+    if(is.na(smear_notif_override)) {
+      prop_m_notif <- unname(log(prop_m_notif_smooth[as.character(round(out[["prop_m_notif"]]*100))]))
+    } else {
+      prop_m_notif  <- dnorm(out[["prop_m_notif"]], mean=tr[["prop_m_notif"]],
+                             sd=(tr_ub[["prop_m_notif"]]-tr_lb[["prop_m_notif"]])/(2*1.96), log=T)
+    }
     
     if(country %in% c("Philippines", "Cambodia")) {
       log_like_all <- data.frame("props_ms"=props_ms,
@@ -462,8 +473,8 @@ calc_like_no10 <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
 
 #version with historical target on bacillary status over time
 calc_like_smear_hist <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
-                                 prop_m_notif_smooth, pnr_params, calib_type,
-                                 country) { #outputs, targets, and upper/lower confidence bounds on targets
+                                 prop_m_notif_smooth, pnr_params, smear_notif_override,
+                                 calib_type, country) { #outputs, targets, and upper/lower confidence bounds on targets
   if(calib_type=="prev") {
     #prevalence survey targets proportion of infections by smear/symptom status - we have actual sample size
     props_ms <- unlist(lapply(1:nrow(out), function(x) 
@@ -487,8 +498,13 @@ calc_like_smear_hist <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases
     deaths_tb[(is.na(deaths_tb)|deaths_tb==-Inf) & !is.na(out[["deaths_tb"]])] <- 
       unlist(log(1/abs(round(out[(is.na(deaths_tb)|deaths_tb==-Inf) & !is.na(out[["deaths_tb"]]), 
                                  "deaths_tb"]*1000)-max(unname(mort_samples)))/1000000)) 
-    #proportion of notifications that are smear-positive - use empirical distribution
-    prop_m_notif <- unname(log(prop_m_notif_smooth[as.character(round(out[["prop_m_notif"]]*100))]))
+    #proportion of notifications that are smear-positive - use empirical distribution unless overridden
+    if(is.na(smear_notif_override)) {
+      prop_m_notif <- unname(log(prop_m_notif_smooth[as.character(round(out[["prop_m_notif"]]*100))]))
+    } else {
+      prop_m_notif  <- dnorm(out[["prop_m_notif"]], mean=tr[["prop_m_notif"]],
+                             sd=(tr_ub[["prop_m_notif"]]-tr_lb[["prop_m_notif"]])/(2*1.96), log=T)
+    }
     
     if(country %in% c("Philippines", "Cambodia")) {
       log_like_all <- data.frame("props_ms"=props_ms,
@@ -573,7 +589,7 @@ output_like <- function(params) {
                          targets_all_lb, targets_all_ub, 
                          mort_samples, prev_cases,
                          prop_m_notif_smooth,
-                         pnr_params, "prev", country)
+                         pnr_params, smear_notif_override, "prev", country)
   
   #HISTORICAL COHORT SMEAR POSITIVE TARGETS
   n_time <- 10
@@ -608,7 +624,7 @@ output_like <- function(params) {
   like_hist_pos <- calc_like(out_hist_pos, targets, 
                              targets_all_lb, targets_all_ub, 
                              mort_samples, prev_cases, prop_m_notif_smooth,
-                             pnr_params, "hist_pos", country)
+                             pnr_params, smear_notif_override, "hist_pos", country)
   
   #HISTORICAL COHORT SMEAR NEGATIVE TARGETS
   n_time <- 10
@@ -635,7 +651,7 @@ output_like <- function(params) {
   like_hist_neg <- calc_like(out_hist_neg, targets, 
                              targets_all_lb, targets_all_ub, 
                              mort_samples, prev_cases, prop_m_notif_smooth,
-                             pnr_params, "hist_neg", country)
+                             pnr_params, smear_notif_override, "hist_neg", country)
   
   #combine results of all 3 calibration types
   log_like_all <-  like_prev$log_like + like_hist_pos$log_like + like_hist_neg$log_like
