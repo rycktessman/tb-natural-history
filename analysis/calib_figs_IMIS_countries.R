@@ -14,12 +14,13 @@ path_out <- "output/main/"
 source("code/calib_functions.R")
 load("data/params_all.Rda")
 
-RR_free <- 0 #whether a_r_s and a_p_s vary from a_r_m and a_p_m
+RR_free <- 1 #4 free RR parameters in this version
 spont_progress <- 0 #whether those who have spontaneously resolved can progress back to smear- symptom- TB
-spont_prog <- 0.15 #annual probability of returning from resolved (if spont_progress==1)
+spont_prog <- 0.15 #what probability to use if spont_progress is 1
 smear_hist_calib <- 0 #whether to include historical targets on bacillary status over time
-deaths_targets <- "ihme" #"base" or "ihme" to use ihme targets
+deaths_targets <- "base" #"base", or "ihme" or use ihme targets
 no_10yr_hist <- 0 #whether to include 10 year historical survival as calibration targets
+smear_notif_override <- NA #NA, or an alt estimate +/- 10% (uniformly distributed)
 
 #param names and labels for graphing
 param_names <- c("Smear Progression", "Symptom Progression", 
@@ -107,7 +108,9 @@ if(RR_free==1) {
                      "a_r_s"="Regression Rel. Risk (symptom)")
     param_names[["a_r_m"]] <- "Regression Rel. Risk (smear)"
     param_names[["a_p_m"]] <- "Progression Rel. Risk (smear)"
-    scenario_lab <- "_rrfree"
+}
+if(RR_free==0) {
+    scenario_lab <- "rrconstrain"
 }
 if(spont_progress==1) {
     params_fixed_prev[["p_c"]] <- 1-exp(log(1-spont_prog)/12) #monthly probability corresponding to annual probability of 3%
@@ -136,12 +139,12 @@ if(deaths_targets=="ihme") {
 if(no_10yr_hist==1) {
     scenario_lab <- "_no10"
 }
+if(!is.na(smear_notif_override)) {
+    scenario_lab <- paste0("_smearnotif", as.character(round(smear_notif_override*100)))
+}
+
 #read files in (priors are the same across countries)
-out_prior <- read.csv(paste0(path_out, "out_prior_combined.csv")) %>% mutate(type="Prior", country="Prior")
-out_prior <- out_prior %>% mutate(prop_m=prop_m_all-prop_ms,
-                                  prop_s=prop_s_all-prop_ms,
-                                  prop=1-(prop_m+prop_s+prop_ms)) %>%
-    select(-c(prop_m_all, prop_s_all))
+out_prior <- read.csv(paste0(path_out, "out_priors_combined.csv")) %>% mutate(type="Prior", country="Prior")
 
 #posteriors and performance for all countries
 out_post_all <- list()
@@ -242,11 +245,11 @@ for(i in names(param_names)) {
     }
     param_plots[[i]] <- plot
 }
-fig <- plot_grid(plotlist=param_plots, align="hv", ncol=4)
+fig <- plot_grid(plotlist=param_plots, align="hv", ncol=3)
 fig2 <- annotate_figure(fig, left=text_grob("Density", size=9, rot=90), 
                         bottom=text_grob("Monthly Values", size=9))
 ggsave(fig2, filename=paste0(path_out, "param_post_countries_ridges", scenario_lab, ".jpg"), 
-       dpi=500, height=8.5, width=10)
+       dpi=500, height=12, width=10)
 
 #version for slides with different dimensions and no country axis
 if(FALSE) {
@@ -437,6 +440,7 @@ ggsave(paste0(path_out, "log_like_box_countries", scenario_lab, ".jpg"), dpi=500
 
 #ESS by country
 ess_all
+colMeans(ess_each)
 
 #Unique samples by country
 unique(out_post_all) %>% group_by(country) %>% summarise(samples=n())
