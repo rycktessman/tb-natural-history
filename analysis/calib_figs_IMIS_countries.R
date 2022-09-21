@@ -110,7 +110,7 @@ if(RR_free==1) {
     param_names[["a_p_m"]] <- "Progression Rel. Risk (smear)"
 }
 if(RR_free==0) {
-    scenario_lab <- "rrconstrain"
+    scenario_lab <- "_rrconstrain"
 }
 if(spont_progress==1) {
     params_fixed_prev[["p_c"]] <- 1-exp(log(1-spont_prog)/12) #monthly probability corresponding to annual probability of 3%
@@ -132,6 +132,10 @@ if(smear_hist_calib==1) {
     mults <- c(mults, 100)
     names(mults) <- names(names)
     scenario_lab <- "_smearhist"
+    target_means[["tb_smear_4yr"]] <- 159/589
+    target_lbs[["tb_smear_4yr"]] <- qbeta(0.025, 159, 589-159)
+    target_ubs[["tb_smear_4yr"]] <- qbeta(0.975, 159, 589-159)
+    
 }
 if(deaths_targets=="ihme") {
     scenario_lab <- "_ihmedeaths"
@@ -145,6 +149,11 @@ if(!is.na(smear_notif_override)) {
 
 #read files in (priors are the same across countries)
 out_prior <- read.csv(paste0(path_out, "out_priors_combined.csv")) %>% mutate(type="Prior", country="Prior")
+
+if(scenario_lab=="_rrconstrain") {
+    out_prior <- out_prior %>% mutate(a_r_s=a_r_m,
+                                      a_p_s=a_p_m)
+}
 
 #posteriors and performance for all countries
 out_post_all <- list()
@@ -446,3 +455,10 @@ colMeans(ess_each)
 unique(out_post_all) %>% group_by(country) %>% summarise(samples=n())
 chain_sets <- unique(out_post_all) %>% group_by(country, chain) %>% summarise(samples=n())
 chain_sets %>% group_by(country) %>% summarise(samples=mean(samples))
+
+#improvement in likelihood over rounds
+ggplot(stats_rounds_all, aes(x=round, y=V1, color=as.character(chain))) +
+    geom_line() + facet_wrap(~country) +
+    labs(x="", y="", color="") + 
+    theme_bw() + theme(legend.position="none",
+                       panel.grid=element_blank())

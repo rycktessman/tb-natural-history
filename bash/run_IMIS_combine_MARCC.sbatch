@@ -23,6 +23,6 @@ echo "ml gcc succesful"
 ml r/4.0.2
 echo "ml r successful"
 
-export country="Nepal" 
-export analysis="base"
+export country="Cambodia" 
+export analysis="smearnotif50"
 Rscript --vanilla code/IMIS_combine_MARCC.R

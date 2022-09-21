@@ -16,7 +16,7 @@ setwd("~/GitHub/tb-natural-history")
 source("code/model_functions.R")
 source("code/calib_functions.R")
 path_out <- "output/main"
-scenario_lab <- "base" #base, rrconstrain, spontprog, smearhist, no10, smearnotif50
+scenario_lab <- "base" #base, rrconstrain, spontprog, smearhist, ihmedeaths, no10, smearnotif50
 
 #% by TB state for steady state calcs
 countries <- c("Philippines", "Vietnam", "Nepal", "Cambodia", "Bangladesh")

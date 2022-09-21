@@ -45,67 +45,67 @@ pull_targets <- function(calib_type, targets_all, country) {
 
 #sample from prior distributions using latin hypercube sampling
 sample_priors <- function(n_samples, priors_prev_lb, priors_prev_ub, 
-                          params_fixed, RR_free, flag_symptom_dur) {
+                          params_fixed, RR_free, RR_regress_recip) {
   uniforms <- data.frame(randomLHS(n=n_samples, k=length(priors_prev_lb))) #sample using LHS
   names(uniforms) <- names(priors_prev_lb)
   #convert uniform[0,1] LHS samples to prior distribution samples
-  priors <- uniforms %>% mutate(p_m=qunif(p_m, min=priors_prev_lb[["p_m"]], max=priors_prev_ub[["p_m"]]),
-                                p_s=qunif(p_s, min=priors_prev_lb[["p_s"]], max=priors_prev_ub[["p_s"]]),
-                                a_p_m=qunif(a_p_m, min=priors_prev_lb[["a_p_m"]], max=priors_prev_ub[["a_p_m"]]),
-                                r_m=qunif(r_m, min=priors_prev_lb[["r_m"]], max=priors_prev_ub[["r_m"]]),
-                                r_s=qunif(r_s, min=priors_prev_lb[["r_s"]], max=priors_prev_ub[["r_s"]]),
-                                a_r_m=qunif(a_r_m, min=priors_prev_lb[["a_r_m"]], max=priors_prev_ub[["a_r_m"]]),
-                                c_sp=qunif(c_sp, min=priors_prev_lb[["c_sp"]], max=priors_prev_ub[["c_sp"]]),
-                                c_tx=qunif(c_tx, min=priors_prev_lb[["c_tx"]], max=priors_prev_ub[["c_tx"]]),
-                                a_m=qunif(a_m, min=priors_prev_lb[["a_m"]], max=priors_prev_ub[["a_m"]]),
-                                m_tb=qunif(m_tb, min=priors_prev_lb[["m_tb"]], max=priors_prev_ub[["m_tb"]]),
-                                a_tx=qunif(a_tx, min=priors_prev_lb[["a_tx"]], max=priors_prev_ub[["a_tx"]])
-  )
-  if(RR_free==1) {
-    priors <- priors %>% mutate(a_p_s=qunif(a_p_s, min=priors_prev_lb[["a_p_s"]], max=priors_prev_ub[["a_p_s"]]),
+  if(RR_regress_recip==0) {
+    priors <- uniforms %>% mutate(p_m=qunif(p_m, min=priors_prev_lb[["p_m"]], max=priors_prev_ub[["p_m"]]),
+                                  p_s=qunif(p_s, min=priors_prev_lb[["p_s"]], max=priors_prev_ub[["p_s"]]),
+                                  a_p_m=qunif(a_p_m, min=priors_prev_lb[["a_p_m"]], max=priors_prev_ub[["a_p_m"]]),
+                                  r_m=qunif(r_m, min=priors_prev_lb[["r_m"]], max=priors_prev_ub[["r_m"]]),
+                                  r_s=qunif(r_s, min=priors_prev_lb[["r_s"]], max=priors_prev_ub[["r_s"]]),
+                                  a_r_m=qunif(a_r_m, min=priors_prev_lb[["a_r_m"]], max=priors_prev_ub[["a_r_m"]]),
+                                  c_sp=qunif(c_sp, min=priors_prev_lb[["c_sp"]], max=priors_prev_ub[["c_sp"]]),
+                                  c_tx=qunif(c_tx, min=priors_prev_lb[["c_tx"]], max=priors_prev_ub[["c_tx"]]),
+                                  a_m=qunif(a_m, min=priors_prev_lb[["a_m"]], max=priors_prev_ub[["a_m"]]),
+                                  m_tb=qunif(m_tb, min=priors_prev_lb[["m_tb"]], max=priors_prev_ub[["m_tb"]]),
+                                  a_tx=qunif(a_tx, min=priors_prev_lb[["a_tx"]], max=priors_prev_ub[["a_tx"]])
+    )
+    if(RR_free==1) {
+      priors <- priors %>% mutate(a_p_s=qunif(a_p_s, min=priors_prev_lb[["a_p_s"]], max=priors_prev_ub[["a_p_s"]]),
                                   a_r_s=qunif(a_r_s, min=priors_prev_lb[["a_r_s"]], max=priors_prev_ub[["a_r_s"]])
-                                  )
+      )
+    }
+  } else {
+    priors <- uniforms %>% mutate(p_m=qunif(p_m, min=priors_prev_lb[["p_m"]], max=priors_prev_ub[["p_m"]]),
+                                  p_s=qunif(p_s, min=priors_prev_lb[["p_s"]], max=priors_prev_ub[["p_s"]]),
+                                  a_p_m=qunif(a_p_m, min=priors_prev_lb[["a_p_m"]], max=priors_prev_ub[["a_p_m"]]),
+                                  r_m=qunif(r_m, min=priors_prev_lb[["r_m"]], max=priors_prev_ub[["r_m"]]),
+                                  r_s=qunif(r_s, min=priors_prev_lb[["r_s"]], max=priors_prev_ub[["r_s"]]),
+                                  a_r_m_recip=qunif(a_r_m_recip, min=priors_prev_lb[["a_r_m_recip"]], max=priors_prev_ub[["a_r_m_recip"]]),
+                                  c_sp=qunif(c_sp, min=priors_prev_lb[["c_sp"]], max=priors_prev_ub[["c_sp"]]),
+                                  c_tx=qunif(c_tx, min=priors_prev_lb[["c_tx"]], max=priors_prev_ub[["c_tx"]]),
+                                  a_m=qunif(a_m, min=priors_prev_lb[["a_m"]], max=priors_prev_ub[["a_m"]]),
+                                  m_tb=qunif(m_tb, min=priors_prev_lb[["m_tb"]], max=priors_prev_ub[["m_tb"]]),
+                                  a_tx=qunif(a_tx, min=priors_prev_lb[["a_tx"]], max=priors_prev_ub[["a_tx"]])
+    )
+    if(RR_free==1) {
+      priors <- priors %>% mutate(a_p_s=qunif(a_p_s, min=priors_prev_lb[["a_p_s"]], max=priors_prev_ub[["a_p_s"]]),
+                                  a_r_s_recip=qunif(a_r_s_recip, min=priors_prev_lb[["a_r_s_recip"]], max=priors_prev_ub[["a_r_s_recip"]])
+      )
+    }
   }
+  
+
   #remove samples when probabilities sum to > 1
-  priors <- apply_flags(priors, params_fixed, RR_free, flag_symptom_dur)
+  priors <- apply_flags(priors, params_fixed, RR_free, RR_regress_recip)
   #note: with current priors, only flag2, flag3, and flag4 are binding constraints
-  priors <- priors %>% mutate(flag_sum=flag1+flag2+flag3+flag4+flag5+flag6)
+  priors <- priors %>% mutate(flag_sum=flag1+flag2+flag3+flag4+flag5)
   priors <- priors %>% filter(flag_sum==0) %>% select(-starts_with("flag"))
   #this alters the marginal distributions - reflects prior belief that some of these probabilities will have to be smaller so their sum doesn't exceed 1
   return(priors)
 }
 
-#calculate percentage still symptom+ after 2 weeks (as param flag in sampling)
-calc_prop_s <- function(samples_wk) {
-  #2 timesteps - fixed for now, could add as variable later if needed
-  t_end <- 2
-  start_pop <- c("t"=0, 
-                 "tb"=0, #smear- symptom- TB
-                 "tb_m"=0, #smear+ symptom- TB
-                 "tb_s"=1, #smear- symptom+ TB
-                 "tb_ms"=0, #smear+ symptom+ TB
-                 "sp_cure"=0, #spontaneously cured
-                 "tx_cure"=0, #cured via diagnosis and treatment
-                 "died_tb"=0, #TB death
-                 "died_nontb"=0, #non-TB death
-                 "rel_inf"=0 #relative number of secondary infections generated
-  )
-  sim_pop <- data.frame() 
-  sim_pop <- bind_rows(sim_pop, start_pop)
-  #run model
-  for(t in 1:t_end) {
-    curr_pop <- nat_hist_markov(samples_wk, sim_pop[t,], t)
-    sim_pop <- bind_rows(sim_pop, curr_pop)
-  }
-  #calculate proportion still symptomatic in last week
-  prop_s <- (sim_pop[(t_end+1),"tb_s"]+sim_pop[(t_end+1),"tb_ms"])/
-    sum(sim_pop[(t_end+1), 2:6]) #treat those who die as censored - may have reached 2 weeks but didn't have opportunity
-  return(prop_s)
-}
-
 #apply flags if transitions sum to > 1
-apply_flags <- function(samples, params_fixed, RR_free, flag_symptom_dur) {
+apply_flags <- function(samples, params_fixed, RR_free, RR_regress_recip) {
   #add dependent parameters so that constraints can be applied
+  if(RR_regress_recip==1) {
+    samples <- samples %>% mutate(a_r_m=1/a_r_m_recip)
+    if(RR_free==1) {
+      samples <- samples %>% mutate(a_r_s=1/a_r_s_recip)
+    }
+  }
   if(RR_free==1) {
     #sensitivity analysis allows a_p_s and a_r_s to be free parameters
     samples <- samples %>% mutate(m_ac=params_fixed$m_ac, #use hist bc its larger
@@ -116,32 +116,13 @@ apply_flags <- function(samples, params_fixed, RR_free, flag_symptom_dur) {
                                   m_ac=params_fixed$m_ac, #use hist bc its larger
                                   p_c=params_fixed$p_c) #prev and hist are same 
   }
-  if(flag_symptom_dur==1) {
-    #convert all probabilities to weekly
-    samples_wk <- samples
-    samples_wk[!(names(samples_wk) %in% 
-                   c("a_p_s", "a_p_m", "a_r_s", "a_r_m", "a_tx", "a_m"))] <- 
-      convert_prob(samples_wk[!(names(samples_wk) %in% 
-                                  c("a_p_s", "a_p_m", "a_r_s", "a_r_m", "a_tx", "a_m"))], 
-                   (1/cyc_len)/52)
-    samples_wk <- samples_wk %>% mutate(i=1, i_m=1, i_s=1, i_ms=1, inflows=0)
-    #run model for 2 timesteps with everyone in smear- symptom+ to calculate % still symptom+ after 2 weeks
-    tic()
-    prop_s <- lapply(1:nrow(samples_wk), function(x) calc_prop_s(samples_wk[x,]))
-    prop_s <- unlist(prop_s)
-    toc()
-  } else {
-    prop_s <- rep(1, nrow(samples)) #value needed not to trigger the flag
-  }
   #calculate flags
   samples <- samples %>% 
     mutate(flag1=1*((p_m + p_s + m_ac + c_sp) > 1),
            flag2=1*((r_m + a_p_s*p_s + m_ac) > 1),
            flag3=1*((r_s + a_p_m*p_m + m_tb + m_ac + c_tx) > 1),
            flag4=1*((a_r_s*r_s + a_r_m*r_m + a_m*m_tb + m_ac + a_tx*c_tx) > 1),
-           flag5=1*((p_c + m_ac) > 1),
-           flag6=1*(prop_s < 0.9)
-           #flag6=1*(((1-convert_prob(r_s, (1/cyc_len)/52))^2) < 0.9) #90% of ppl should spend 2+ weeks symptomatic
+           flag5=1*((p_c + m_ac) > 1)
            )
   #remove dependent parameters
   if(RR_free==1) {
@@ -151,29 +132,15 @@ apply_flags <- function(samples, params_fixed, RR_free, flag_symptom_dur) {
     samples <- samples %>% 
       select(-c(a_p_s, a_r_s, m_ac, p_c))
   }
+  if(RR_regress_recip==1) {
+    samples <- samples %>% select(-a_r_m)
+    if(RR_free==1) {
+      samples <- samples %>% select(-a_r_s)
+    }
+  }
   return(samples)
 }
 
-#apply feasibility bounds to parameter set samples (multipliers >/< 1, probs in 0-1, transitions out < 1)
-apply_bounds <- function(samples, params_fixed) {
-  samples <- samples %>% 
-    mutate(flag0=1*((p_m>1) + (p_s>1) + (r_m>1) + (r_s>1) + (c_sp>1) + (c_tx>1) + (m_tb>1) +
-                      (p_m<0) + (p_s<0) + (r_m<0) + (r_s<0) + (c_sp<0) + (c_tx<0) + (m_tb<0) +
-                      (a_p_m<1) + (a_r_m>1) + (a_m<1) + (a_r_m<0) + (a_m<0)))
-  #apply flag for a_tx too
-  samples <- samples %>% 
-    mutate(flag0=if_else("a_tx" %in% colnames(samples), flag0+1*(a_tx<1), flag0))
-  #if a_p_s and a_r_s are also sampled (e.g. when RR_free is 1) then apply flags for those 2 parameters too
-  samples <- samples %>% 
-    mutate(flag0=if_else("a_p_s" %in% colnames(samples), flag0+1*(a_p_s<1), flag0))
-  samples <- samples %>% 
-    mutate(flag0=if_else("a_r_s" %in% colnames(samples), flag0+1*((a_r_s>1) + (a_r_s<0)), flag0))
-  samples <- apply_flags(samples)
-  samples <- samples %>% mutate(flag_sum=flag0+flag1+flag2+flag3+flag4+flag5)
-  samples <- samples %>% filter(flag_sum==0) %>% 
-    select(-starts_with("flag"))
-  return(samples)
-}
 
 #sampling function for use in IMIS package
 sample.prior <- function(n_samples) {
@@ -181,7 +148,7 @@ sample.prior <- function(n_samples) {
   priors_all <- data.frame()
   while(i<n_samples) {
     priors <- sample_priors(n_samples, priors_prev_lb, priors_prev_ub, 
-                            params_fixed_prev, RR_free, flag_symptom_dur)
+                            params_fixed_prev, RR_free, RR_regress_recip)
     priors_all <- bind_rows(priors, priors_all)
     i <- nrow(priors_all)
   }
@@ -197,7 +164,7 @@ prior <- function(params) {
                  function(x) dunif(params[[x]], priors_prev_lb[[x]], 
                                    priors_prev_ub[[x]]), simplify=F, USE.NAMES=T)
   like <- bind_cols(like)
-  flags <- apply_flags(params, params_fixed_prev, RR_free, flag_symptom_dur) %>% select(starts_with("flag"))
+  flags <- apply_flags(params, params_fixed_prev, RR_free, RR_regress_recip) %>% select(starts_with("flag"))
   #getting flagged = likelihood of 0, so change 1s to 0s and 0s to 1s, then take product
   flags <- flags*-1 + 1
   like <- cbind(like, flags)
@@ -290,10 +257,19 @@ calc_outputs_hist_smear <- function(sim_pop, cyc_len, calib_type) {
 
 #function that runs the model with a set of parameters and returns model outputs (vs. targets) and penalties
 calib_out <- function(params_calib, params_fixed, calib_type,  
-                      RR_free, smear_hist_calib, country, t_end, cyc_len, sim_pop) {  
+                      RR_free, smear_hist_calib, RR_regress_recip,
+                      country, t_end, cyc_len, sim_pop) {  
   p_use <- c(params_calib, params_fixed)
   params_depend <- c()
   #parameter dependencies
+  if(RR_regress_recip==0) {
+    params_depend <- c(params_depend,
+                       "a_r_m"=1/p_use[["a_r_m_recip"]])
+    if(RR_free==1) {
+      params_depend <- c(params_depend, 
+                         "a_r_s"=1/p_use[["a_r_s_recip"]])
+    }
+  }
   if(RR_free==0) {
     params_depend <- c(params_depend,
                        "a_p_s"=p_use[["a_p_m"]], 
@@ -563,8 +539,6 @@ output_like <- function(params) {
   } else {
     params <- data.frame(params)
   }
-  #n_time <- 100 #enough time to reach steady state
-  #t_end <- n_time/cyc_len
   t_end <- 1200
   start_pop <- c(1, #smear- symptom- TB
                  0, #smear+ symptom- TB
@@ -582,7 +556,7 @@ output_like <- function(params) {
   params_use <- params %>% select(names(params_calib_prev))
   out_prev <- lapply(1:nrow(params_use), function(x)
     calib_out(params_use[x,], params_fixed_prev, "prev", RR_free, 
-              smear_hist_calib, country,
+              smear_hist_calib, RR_regress_recip, country,
               t_end, cyc_len, sim_pop)$outputs)
   out_prev <- bind_rows(out_prev)
   like_prev <- calc_like(out_prev, targets, 
@@ -618,7 +592,7 @@ output_like <- function(params) {
   params_use <- params %>% select(names(params_calib_hist))
   out_hist_pos <- lapply(1:nrow(params_use), function(x)
     calib_out(params_use[x,], params_fixed_hist, "hist_pos", RR_free, 
-              smear_hist_calib, country,
+              smear_hist_calib, RR_regress_recip, country,
               t_end, cyc_len, sim_pop)$outputs)
   out_hist_pos <- bind_rows(out_hist_pos)
   like_hist_pos <- calc_like(out_hist_pos, targets, 
@@ -645,7 +619,7 @@ output_like <- function(params) {
   params_use <- params %>% select(names(params_calib_hist))
   out_hist_neg <- lapply(1:nrow(params_use), function(x)
     calib_out(params_use[x,], params_fixed_hist, "hist_neg", RR_free, 
-              smear_hist_calib, country,
+              smear_hist_calib, RR_regress_recip, country,
               t_end, cyc_len, sim_pop)$outputs)
   out_hist_neg <- bind_rows(out_hist_neg)
   like_hist_neg <- calc_like(out_hist_neg, targets, 

@@ -15,7 +15,7 @@ path_out <- paste0("output/", tolower(country), "_", analysis, "/")
 completed <- list.files(path=path_out, pattern="IMIS_opt_each")
 chains <- as.numeric(gsub(".*?([0-9]+).*", "\\1", completed))
 chains <- sort(chains)
-rounds <- 12 #number of IMIS rounds
+rounds <- 16 #number of IMIS rounds
 
 #load output from IMIS
 best_params_rounds <- data.frame() #optimal parameter set from each IMIS round within each chain

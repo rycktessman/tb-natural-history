@@ -1,0 +1,43 @@
+study_id,smear,time,ragonnet,exclude,exclude_reason,n,prop_alive,alive,label
+hartley,positive,5,1,0,,3326,0.58,1929,Hartley 1935
+sindinglarsen,positive,5,1,0,,1114,0.57,635,Sinding-Larsen 1937
+trailstockman,positive,5,1,0,,2615,0.5,1308,Trail 1931
+backer,positive,5,1,0,,2312,0.35,809,Backer 1937
+furthkrebs,positive,5,1,0,,996,0.3,299,Furth 1931
+tattersall,positive,5,1,0,,1082,.,.,Tattersall 1947
+magnusson,positive,4,1,1,,379,0.37,140,Magnusson 1938
+rutledgecrouch,positive,5,1,0,,511,0.39,199,Rutledge 1919
+munchbach,positive,5,1,0,,3966,0.5,1983,Munchbach 1933
+braeuningneisen,positive,5,1,0,,607,0.25,152,Braeuning 1933
+griep,positive,5,1,0,,975,0.51,497,Griep 1939
+baartdelafaille,positive,5,1,0,,534,0.38,203,Baart de la Faille 1939
+buhlnyboe,positive,5,1,0,,314,0.45,141,Buhl 1925
+lindhardt,positive,5,1,0,,11797,0.43,5073,Lindhardt 1939
+berg,positive,5,1,0,,2042,0.42,858,Berg 1951
+thompson,positive,5,1,0,,406,0.27,110,Thompson 1943
+furthkrebs,negative,5,1,0,,469,0.88,413,Furth 1931
+magnusson,negative,4,1,1,,413,0.92,380,Magnusson 1938
+rutledgecrouch,negative,5,1,0,,185,0.86,159,Rutledge 1919
+baartdelafaille,negative,5,1,0,,597,0.85,507,Baart de la Faille 1939
+baartdelafaille,negative,5,0,1,always smear-negative and not confirmed how many were ever culture-positive,2484,0.9,2236,Baart de la Faille 1939
+hartley,positive,10,1,0,,3326,.,.,Hartley 1935
+sindinglarsen,positive,10,1,0,,1114,0.47,524,Sinding-Larsen 1937
+trailstockman,positive,10,1,0,,2615,0.34,889,Trail 1931
+backer,positive,10,1,0,,2312,0.21,486,Backer 1937
+furthkrebs,positive,10,1,0,,996,0.19,189,Furth 1931
+tattersall,positive,10,1,0,,1082,0.23,249,Tattersall 1947
+magnusson,positive,10,1,0,,379,0.27,102,Magnusson 1938
+rutledgecrouch,positive,10,1,0,,511,.,.,Rutledge 1919
+munchbach,positive,10,1,0,,3966,.,.,Munchbach 1933
+braeuningneisen,positive,10,1,0,,607,0.18,109,Braeuning 1933
+griep,positive,10,1,0,,975,0.34,332,Griep 1939
+baartdelafaille,positive,10,1,0,,534,0.29,155,Baart de la Faille 1939
+buhlnyboe,positive,10,1,0,,314,0.34,107,Buhl 1925
+lindhardt,positive,10,1,0,,11797,.,.,Lindhardt 1939
+berg,positive,10,1,0,,2042,0.29,592,Berg 1951
+thompson,positive,10,1,0,,406,0.14,57,Thompson 1943
+furthkrebs,negative,10,1,0,,469,0.78,366,Furth 1931
+magnusson,negative,10,1,0,,413,0.85,351,Magnusson 1938
+rutledgecrouch,negative,10,1,0,,185,.,.,Rutledge 1919
+baartdelafaille,negative,10,1,0,,597,0.75,448,Baart de la Faille 1939
+baartdelafaille,negative,10,0,1,always smear-negative and not confirmed how many were ever culture-positive,2484,.,.,Baart de la Faille 1939
