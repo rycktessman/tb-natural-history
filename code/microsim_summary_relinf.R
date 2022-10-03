@@ -1,4 +1,5 @@
 #use microsim output to estimate per-person and per-pop relative contribution to transmission
+#also generates summary stats on time spent in/proportion reaching different states
 #for all countries and a single analysis 
 
 library(tidyverse)
