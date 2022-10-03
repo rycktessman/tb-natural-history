@@ -21,6 +21,7 @@ smear_hist_calib <- 0 #whether to include historical targets on bacillary status
 deaths_targets <- "base" #"base", or "ihme" or use ihme targets
 no_10yr_hist <- 0 #whether to include 10 year historical survival as calibration targets
 smear_notif_override <- NA #NA, or an alt estimate +/- 10% (uniformly distributed)
+RR_regress_recip <- 0 #if 1, fit one over the regression relative risk(s) instead of the regression relative risk(s)
 
 #param names and labels for graphing
 param_names <- c("Smear Progression", "Symptom Progression", 
@@ -146,6 +147,10 @@ if(no_10yr_hist==1) {
 if(!is.na(smear_notif_override)) {
     scenario_lab <- paste0("_smearnotif", as.character(round(smear_notif_override*100)))
 }
+if(RR_regress_recip==1) {
+    scenario_lab <- "_recipprior"
+}
+
 
 #read files in (priors are the same across countries)
 out_prior <- read.csv(paste0(path_out, "out_priors_combined.csv")) %>% mutate(type="Prior", country="Prior")
@@ -153,6 +158,12 @@ out_prior <- read.csv(paste0(path_out, "out_priors_combined.csv")) %>% mutate(ty
 if(scenario_lab=="_rrconstrain") {
     out_prior <- out_prior %>% mutate(a_r_s=a_r_m,
                                       a_p_s=a_p_m)
+}
+if(scenario_lab=="_recipprior") {
+    out_prior <- read.csv(paste0(path_out, "out_priors_combined_recipprior.csv")) %>%
+        mutate(type="Prior", country="Prior")
+    out_prior <- out_prior %>% mutate(a_r_m=1/a_r_m_recip,
+                                      a_r_s=1/a_r_s_recip)
 }
 
 #posteriors and performance for all countries
@@ -180,9 +191,13 @@ ess_each <- bind_cols(ess_each)
 names(ess_each) <- countries
 
 #FIGURE 2: PRIOR AND POSTERIOR DISTRIBUTIONS BY COUNTRY
+if(scenario_lab=="_recipprior") {
+    out_post_all <- out_post_all %>% mutate(a_r_m=1/a_r_m_recip, a_r_s=1/a_r_s_recip)
+}
 out_params <- out_post_all %>% select(names(names_params_calib), country)
 out_params <- bind_rows(out_params, out_prior %>% select(names(names_params_calib), country))
 out_params <- out_params %>% mutate(m_tb_m=m_tb*a_m, c_tx_m=c_tx*a_tx) %>% select(-c(a_m, a_tx))
+
 out_params <- out_params %>% mutate(country=factor(country, levels=c(sort(countries), "Prior")))
 param_plots <- list()
 for(i in names(param_names)) {

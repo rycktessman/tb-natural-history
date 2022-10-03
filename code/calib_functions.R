@@ -262,7 +262,7 @@ calib_out <- function(params_calib, params_fixed, calib_type,
   p_use <- c(params_calib, params_fixed)
   params_depend <- c()
   #parameter dependencies
-  if(RR_regress_recip==0) {
+  if(RR_regress_recip==1) {
     params_depend <- c(params_depend,
                        "a_r_m"=1/p_use[["a_r_m_recip"]])
     if(RR_free==1) {

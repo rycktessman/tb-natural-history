@@ -135,9 +135,9 @@ B.re <- 1000 #1000 samples of the posterior
 number_k <- 16 #run 11 rounds of IMIS
 D <- 0 #don't optimize first
 
-B <- 1000 #versions for testing
-B.re <- 1000
-number_k <- 5
+#B <- 1000 #versions for testing
+#B.re <- 1000
+#number_k <- 5
 #copy of IMIS package function by Raftery & Bao with additional outputs saved
 IMIS_copy <- function(B, B.re, number_k, D) {
   B0 = B * 10

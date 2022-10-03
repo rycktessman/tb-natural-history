@@ -33,6 +33,12 @@ prev_samples <- sapply(unique(data$location), function(x)
          scale=data %>% filter(measure=="Prevalence" & location==x) %>% pull(scale)),
   simplify=F, USE.NAMES=T)
 
+sapply(names(mort_samples), function(x) mean(mort_samples[[x]]/prev_samples[[x]]))
+sapply(names(mort_samples), function(x) 
+  quantile(mort_samples[[x]]/prev_samples[[x]], 0.025))
+sapply(names(mort_samples), function(x) 
+  quantile(mort_samples[[x]]/prev_samples[[x]], 0.975))
+
 #plot against estimates
 if(TRUE){
   plot_list <- list()

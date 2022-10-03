@@ -1,5 +1,6 @@
 library(tidyverse)
 library(scales)
+library(forestplot) 
 
 data <- read.csv("analysis/cohort_mortality_data_long.csv")
 
@@ -21,23 +22,23 @@ header <- tibble(study="Study", n=NA, died=NA, mean=NA, lower=NA, upper=NA,
                  estimate="Estimate", n_char="N", died_char="Died", summary=T)
 
 data5pos <- data %>% filter(smear=="positive" & time==5) %>% select(-c(smear, time))
-pooled5pos <- tibble(study="Summary", n=NA, died=NA, mean=0.576, lower=0.533, upper=0.619,
-                     estimate="58% [53-62%]", n_char="", died_char="", summary=T)
+pooled5pos <- tibble(study="Summary", n=NA, died=NA, mean=0.576, lower=0.51, upper=0.64,
+                     estimate="58% [51-64%]", n_char="", died_char="", summary=T)
 data5pos <- bind_rows(header, data5pos, pooled5pos)
 
 data10pos <- data %>% filter(smear=="positive" & time==10) %>% select(-c(smear, time))
-pooled10pos <- tibble(study="Summary", n=NA, died=NA, mean=0.710, lower=0.668, upper=0.751,
-                      estimate="71% [67-75%]", n_char="", died_char="", summary=T)
+pooled10pos <- tibble(study="Summary", n=NA, died=NA, mean=0.710, lower=0.65, upper=0.77,
+                      estimate="71% [65-77%]", n_char="", died_char="", summary=T)
 data10pos <- bind_rows(header, data10pos, pooled10pos)
 
 data5neg <- data %>% filter(smear=="negative" & time==5) %>% select(-c(smear, time))
-pooled5neg <- tibble(study="Summary", n=NA, died=NA, mean=0.127, lower=0.105, upper=0.149,
-                      estimate="13% [11-15%]", n_char="", died_char="", summary=T)
+pooled5neg <- tibble(study="Summary", n=NA, died=NA, mean=0.127, lower=0.09, upper=0.16,
+                      estimate="13% [9-16%]", n_char="", died_char="", summary=T)
 data5neg <- bind_rows(header, data5neg, pooled5neg)
 
 data10neg <- data %>% filter(smear=="negative" & time==10) %>% select(-c(smear, time))
-pooled10neg <- tibble(study="Summary", n=NA, died=NA, mean=0.211, lower=0.170, upper=0.251,
-                     estimate="21% [17-25%]", n_char="", died_char="", summary=T)
+pooled10neg <- tibble(study="Summary", n=NA, died=NA, mean=0.211, lower=0.15, upper=0.26,
+                     estimate="21% [15-26%]", n_char="", died_char="", summary=T)
 data10neg <- bind_rows(header, data10neg, pooled10neg)
 
 

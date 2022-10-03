@@ -26,6 +26,7 @@ smear_hist_calib <- 0 #whether to include historical targets on bacillary status
 deaths_targets <- "base" #"base", or "ihme" or use ihme targets
 no_10yr_hist <- 0 #whether to include 10 year historical survival as calibration targets
 smear_notif_override <- NA #NA, or an alt estimate +/- 10% (uniformly distributed)
+RR_regress_recip <- 1 #if 1, fit one over the regression relative risk(s) instead of the regression relative risk(s)
 start_pop <- as.numeric(Sys.getenv('start_pop')) #1=smear-/symptom-, 2=smear+/symptom-, 3=smear-/symptom+, 4=smear+/symptom+
 
 #load files 
@@ -52,8 +53,11 @@ if(no_10yr_hist==1) {
 if(!is.na(smear_notif_override)) {
   path_out <- paste0(path_out, "_smearnotif", as.character(round(smear_notif_override*100)))
 }
+if(RR_regress_recip==1) {
+  path_out <- paste0(path_out, "_recipprior")
+}
 if(RR_free==1 & spont_progress==0 & smear_hist_calib==0 & no_10yr_hist==0 & deaths_targets=="base" &
-   is.na(smear_notif_override)) {
+   is.na(smear_notif_override) & RR_regress_recip==0) {
   path_out <- paste0(path_out, "_base")
 }
 path_out <- paste0(path_out, "/")
@@ -82,6 +86,12 @@ if(index_end < index_start) {
   if(RR_free==0) {
     params_post_unique <- params_post_unique %>% 
       mutate(a_p_s=a_p_m, a_r_s=a_r_m)
+  }
+  if(RR_regress_recip==1) {
+    params_post_unique <- params_post_unique %>% 
+      mutate(a_r_m=1/a_r_m_recip,
+             a_r_s=1/a_r_s_recip) %>%
+      select(-c(a_r_m_recip, a_r_s_recip))
   }
   if(spont_progress==1) {
     params_post_unique <- params_post_unique %>% 
