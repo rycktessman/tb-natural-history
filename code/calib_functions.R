@@ -1,13 +1,5 @@
 #FUNCTIONS USED IN MODEL CALIBRATION
 
-#convert probabilities between different time steps
-convert_prob <- function(prob_old, t_new) { #t_new is length of new timestep relatively to old timestep
-  rate_old <- -log(1-prob_old)
-  rate_new <- rate_old*t_new
-  prob_new <- 1-exp(-rate_new)
-  return(prob_new)
-}
-
 #pull calibration targets based on type of calibration
 pull_targets <- function(calib_type, targets_all, country) {
   if(calib_type=="hist_pos") {
@@ -45,12 +37,11 @@ pull_targets <- function(calib_type, targets_all, country) {
 
 #sample from prior distributions using latin hypercube sampling
 sample_priors <- function(n_samples, priors_prev_lb, priors_prev_ub, 
-                          params_fixed, RR_free, RR_regress_recip) {
+                          params_fixed, RR_free) {
   uniforms <- data.frame(randomLHS(n=n_samples, k=length(priors_prev_lb))) #sample using LHS
   names(uniforms) <- names(priors_prev_lb)
   #convert uniform[0,1] LHS samples to prior distribution samples
-  if(RR_regress_recip==0) {
-    priors <- uniforms %>% mutate(p_m=qunif(p_m, min=priors_prev_lb[["p_m"]], max=priors_prev_ub[["p_m"]]),
+  priors <- uniforms %>% mutate(p_m=qunif(p_m, min=priors_prev_lb[["p_m"]], max=priors_prev_ub[["p_m"]]),
                                   p_s=qunif(p_s, min=priors_prev_lb[["p_s"]], max=priors_prev_ub[["p_s"]]),
                                   a_p_m=qunif(a_p_m, min=priors_prev_lb[["a_p_m"]], max=priors_prev_ub[["a_p_m"]]),
                                   r_m=qunif(r_m, min=priors_prev_lb[["r_m"]], max=priors_prev_ub[["r_m"]]),
@@ -60,36 +51,15 @@ sample_priors <- function(n_samples, priors_prev_lb, priors_prev_ub,
                                   c_tx=qunif(c_tx, min=priors_prev_lb[["c_tx"]], max=priors_prev_ub[["c_tx"]]),
                                   a_m=qunif(a_m, min=priors_prev_lb[["a_m"]], max=priors_prev_ub[["a_m"]]),
                                   m_tb=qunif(m_tb, min=priors_prev_lb[["m_tb"]], max=priors_prev_ub[["m_tb"]]),
-                                  a_tx=qunif(a_tx, min=priors_prev_lb[["a_tx"]], max=priors_prev_ub[["a_tx"]])
+                                  a_tx=qunif(a_tx, min=priors_prev_lb[["a_tx"]], max=priors_prev_ub[["a_tx"]]))
+  if(RR_free==1) {
+    priors <- priors %>% mutate(a_p_s=qunif(a_p_s, min=priors_prev_lb[["a_p_s"]], max=priors_prev_ub[["a_p_s"]]),
+                                a_r_s=qunif(a_r_s, min=priors_prev_lb[["a_r_s"]], max=priors_prev_ub[["a_r_s"]])
     )
-    if(RR_free==1) {
-      priors <- priors %>% mutate(a_p_s=qunif(a_p_s, min=priors_prev_lb[["a_p_s"]], max=priors_prev_ub[["a_p_s"]]),
-                                  a_r_s=qunif(a_r_s, min=priors_prev_lb[["a_r_s"]], max=priors_prev_ub[["a_r_s"]])
-      )
-    }
-  } else {
-    priors <- uniforms %>% mutate(p_m=qunif(p_m, min=priors_prev_lb[["p_m"]], max=priors_prev_ub[["p_m"]]),
-                                  p_s=qunif(p_s, min=priors_prev_lb[["p_s"]], max=priors_prev_ub[["p_s"]]),
-                                  a_p_m=qunif(a_p_m, min=priors_prev_lb[["a_p_m"]], max=priors_prev_ub[["a_p_m"]]),
-                                  r_m=qunif(r_m, min=priors_prev_lb[["r_m"]], max=priors_prev_ub[["r_m"]]),
-                                  r_s=qunif(r_s, min=priors_prev_lb[["r_s"]], max=priors_prev_ub[["r_s"]]),
-                                  a_r_m_recip=qunif(a_r_m_recip, min=priors_prev_lb[["a_r_m_recip"]], max=priors_prev_ub[["a_r_m_recip"]]),
-                                  c_sp=qunif(c_sp, min=priors_prev_lb[["c_sp"]], max=priors_prev_ub[["c_sp"]]),
-                                  c_tx=qunif(c_tx, min=priors_prev_lb[["c_tx"]], max=priors_prev_ub[["c_tx"]]),
-                                  a_m=qunif(a_m, min=priors_prev_lb[["a_m"]], max=priors_prev_ub[["a_m"]]),
-                                  m_tb=qunif(m_tb, min=priors_prev_lb[["m_tb"]], max=priors_prev_ub[["m_tb"]]),
-                                  a_tx=qunif(a_tx, min=priors_prev_lb[["a_tx"]], max=priors_prev_ub[["a_tx"]])
-    )
-    if(RR_free==1) {
-      priors <- priors %>% mutate(a_p_s=qunif(a_p_s, min=priors_prev_lb[["a_p_s"]], max=priors_prev_ub[["a_p_s"]]),
-                                  a_r_s_recip=qunif(a_r_s_recip, min=priors_prev_lb[["a_r_s_recip"]], max=priors_prev_ub[["a_r_s_recip"]])
-      )
-    }
   }
   
-
   #remove samples when probabilities sum to > 1
-  priors <- apply_flags(priors, params_fixed, RR_free, RR_regress_recip)
+  priors <- apply_flags(priors, params_fixed, RR_free)
   #note: with current priors, only flag2, flag3, and flag4 are binding constraints
   priors <- priors %>% mutate(flag_sum=flag1+flag2+flag3+flag4+flag5)
   priors <- priors %>% filter(flag_sum==0) %>% select(-starts_with("flag"))
@@ -98,14 +68,8 @@ sample_priors <- function(n_samples, priors_prev_lb, priors_prev_ub,
 }
 
 #apply flags if transitions sum to > 1
-apply_flags <- function(samples, params_fixed, RR_free, RR_regress_recip) {
+apply_flags <- function(samples, params_fixed, RR_free) {
   #add dependent parameters so that constraints can be applied
-  if(RR_regress_recip==1) {
-    samples <- samples %>% mutate(a_r_m=1/a_r_m_recip)
-    if(RR_free==1) {
-      samples <- samples %>% mutate(a_r_s=1/a_r_s_recip)
-    }
-  }
   if(RR_free==1) {
     #sensitivity analysis allows a_p_s and a_r_s to be free parameters
     samples <- samples %>% mutate(m_ac=params_fixed$m_ac, #use hist bc its larger
@@ -132,15 +96,8 @@ apply_flags <- function(samples, params_fixed, RR_free, RR_regress_recip) {
     samples <- samples %>% 
       select(-c(a_p_s, a_r_s, m_ac, p_c))
   }
-  if(RR_regress_recip==1) {
-    samples <- samples %>% select(-a_r_m)
-    if(RR_free==1) {
-      samples <- samples %>% select(-a_r_s)
-    }
-  }
   return(samples)
 }
-
 
 #sampling function for use in IMIS package
 sample.prior <- function(n_samples) {
@@ -148,7 +105,7 @@ sample.prior <- function(n_samples) {
   priors_all <- data.frame()
   while(i<n_samples) {
     priors <- sample_priors(n_samples, priors_prev_lb, priors_prev_ub, 
-                            params_fixed_prev, RR_free, RR_regress_recip)
+                            params_fixed_prev, RR_free)
     priors_all <- bind_rows(priors, priors_all)
     i <- nrow(priors_all)
   }
@@ -164,7 +121,7 @@ prior <- function(params) {
                  function(x) dunif(params[[x]], priors_prev_lb[[x]], 
                                    priors_prev_ub[[x]]), simplify=F, USE.NAMES=T)
   like <- bind_cols(like)
-  flags <- apply_flags(params, params_fixed_prev, RR_free, RR_regress_recip) %>% select(starts_with("flag"))
+  flags <- apply_flags(params, params_fixed_prev, RR_free) %>% select(starts_with("flag"))
   #getting flagged = likelihood of 0, so change 1s to 0s and 0s to 1s, then take product
   flags <- flags*-1 + 1
   like <- cbind(like, flags)
@@ -239,7 +196,7 @@ calc_outputs_hist <- function(sim_pop, cyc_len, calib_type) {
   return(outputs)
 }
 
-#version that also calculte % still smear+ at 4 years (if calib_type is hist_pos only)
+#version used in sensitivity analysis that also calculte % still smear+ at 4 years (if calib_type is hist_pos only)
 calc_outputs_hist_smear <- function(sim_pop, cyc_len, calib_type) { 
   #adjust timing (5 yrs and 10 yrs) for cycle length
   dead_5yr=sim_pop[5/cyc_len, "died_tb"] + sim_pop[5/cyc_len, "died_nontb"]
@@ -257,19 +214,11 @@ calc_outputs_hist_smear <- function(sim_pop, cyc_len, calib_type) {
 
 #function that runs the model with a set of parameters and returns model outputs (vs. targets) and penalties
 calib_out <- function(params_calib, params_fixed, calib_type,  
-                      RR_free, smear_hist_calib, RR_regress_recip,
+                      RR_free, smear_hist_calib,
                       country, t_end, cyc_len, sim_pop) {  
   p_use <- c(params_calib, params_fixed)
   params_depend <- c()
   #parameter dependencies
-  if(RR_regress_recip==1) {
-    params_depend <- c(params_depend,
-                       "a_r_m"=1/p_use[["a_r_m_recip"]])
-    if(RR_free==1) {
-      params_depend <- c(params_depend, 
-                         "a_r_s"=1/p_use[["a_r_s_recip"]])
-    }
-  }
   if(RR_free==0) {
     params_depend <- c(params_depend,
                        "a_p_s"=p_use[["a_p_m"]], 
@@ -384,7 +333,7 @@ calc_like <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
   return(like_out)
 }
 
-#version without the 10-year mortality targets
+#sensitivity analysis version without the 10-year mortality targets
 calc_like_no10 <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
                            prop_m_notif_smooth, pnr_params, smear_notif_override,
                            calib_type, country) { #outputs, targets, and upper/lower confidence bounds on targets
@@ -447,7 +396,7 @@ calc_like_no10 <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
   return(like_out)
 }
 
-#version with historical target on bacillary status over time
+#sensitivity analysis version with historical target on bacillary status over time
 calc_like_smear_hist <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases,
                                  prop_m_notif_smooth, pnr_params, smear_notif_override,
                                  calib_type, country) { #outputs, targets, and upper/lower confidence bounds on targets
@@ -521,16 +470,6 @@ calc_like_smear_hist <- function(out, tr, tr_lb, tr_ub, mort_samples, prev_cases
   return(like_out)
 }
 
-#function to calculate sum of squared errors between model output and calibration targets (including penalties)
-calc_sse <- function(out, tr, scale_fac) { #function of model outputs and calibration targets
-  sse <- sum((out$outputs/scale_fac-tr/scale_fac)^2) + out$penalties
-  #print(sse)
-  if(sse==Inf|is.na(sse)) {
-    sse <- out$penalties + 9999999
-  }
-  return(sse)
-}
-
 
 #calculate all model outputs and likelihoods (across the 3 types of calibrations)
 output_like <- function(params) {
@@ -556,7 +495,7 @@ output_like <- function(params) {
   params_use <- params %>% select(names(params_calib_prev))
   out_prev <- lapply(1:nrow(params_use), function(x)
     calib_out(params_use[x,], params_fixed_prev, "prev", RR_free, 
-              smear_hist_calib, RR_regress_recip, country,
+              smear_hist_calib, country,
               t_end, cyc_len, sim_pop)$outputs)
   out_prev <- bind_rows(out_prev)
   like_prev <- calc_like(out_prev, targets, 
@@ -592,7 +531,7 @@ output_like <- function(params) {
   params_use <- params %>% select(names(params_calib_hist))
   out_hist_pos <- lapply(1:nrow(params_use), function(x)
     calib_out(params_use[x,], params_fixed_hist, "hist_pos", RR_free, 
-              smear_hist_calib, RR_regress_recip, country,
+              smear_hist_calib, country,
               t_end, cyc_len, sim_pop)$outputs)
   out_hist_pos <- bind_rows(out_hist_pos)
   like_hist_pos <- calc_like(out_hist_pos, targets, 
@@ -619,7 +558,7 @@ output_like <- function(params) {
   params_use <- params %>% select(names(params_calib_hist))
   out_hist_neg <- lapply(1:nrow(params_use), function(x)
     calib_out(params_use[x,], params_fixed_hist, "hist_neg", RR_free, 
-              smear_hist_calib, RR_regress_recip, country,
+              smear_hist_calib, country,
               t_end, cyc_len, sim_pop)$outputs)
   out_hist_neg <- bind_rows(out_hist_neg)
   like_hist_neg <- calc_like(out_hist_neg, targets, 

@@ -1,11 +1,8 @@
-#packages and working directory
-library(dplyr)
-
 #DEFINE STATES AND OUTCOMES
 states <- c("tb", "tb_m", "tb_s", "tb_ms", "sp_cure", "tx_cure", "died_tb", "died_nontb")
 alive_states <- c("tb", "tb_m", "tb_s", "tb_ms", "sp_cure", "tx_cure")
 tb_states <- c("tb", "tb_m", "tb_s", "tb_ms")
-outcomes <- c("died_tb", "died_nontb", "rel_inf")
+outcomes <- c("died_tb", "died_nontb")
 
 #GENERATE TRANSITION MATRIX FOR MARKOV MODEL - if inflows off, rowSums=1's
 gen_trans_mat <- function(params) {
@@ -55,50 +52,6 @@ gen_trans_mat <- function(params) {
   trans_mat[8, 8] <- 1
   return(trans_mat)
 }
-
-#MARKOV MODEL FUNCTION - NO LONGER USING - SWITCHED TO MATRIX VERSION
-#function to run model for a single timestep - markov model version (not individual level)
-#generate data frame where each row is a timestep, each column is a state (track proportion of pop by state), relative # secondary infections is also a column
-nat_hist_markov <- function(p, pop, t) { #p=params list, pop=simulated population, t=timestep
-  tb <- pop$tb*(1-(p$p_m + p$p_s + p$m_ac + p$c_sp)) + #smear- symptom- stay
-    pop$tb_m*p$r_m + #smear status regresses
-    pop$tb_s*p$r_s + #symptom status regresses
-    pop$sp_cure*p$p_c + #progress from spontaneous cure
-    (pop$tb + pop$tb_m + pop$tb_s + pop$tb_ms + pop$sp_cure + pop$tx_cure)*p$m_ac*(p$inflows==1) + #new inflows to the model = deaths out of the model
-    pop$tb_s*p$m_tb*(p$inflows==1) +  #new inflows to the model = deaths out of the model
-    pop$tb_ms*p$a_m*p$m_tb*(p$inflows==1) #new inflows to the model = deaths out of the model
-  tb_m <- pop$tb_m*(1-(p$r_m + p$a_p_s*p$p_s + p$m_ac)) + #smear+ symptom- stay
-    pop$tb*p$p_m + #smear status progresses
-    pop$tb_ms*p$a_r_s*p$r_s #symptom status regresses
-  tb_s <- pop$tb_s*(1-(p$r_s + p$a_p_m*p$p_m + p$m_tb + p$m_ac + p$c_tx)) + #smear- symptom+ stay  
-    pop$tb*p$p_s + #symptom status progresses
-    pop$tb_ms*p$a_r_m*p$r_m  #smear status regresses
-  tb_ms <- pop$tb_ms*(1-(p$a_r_s*p$r_s + p$a_r_m*p$r_m + p$a_m*p$m_tb + p$m_ac + p$a_tx*p$c_tx)) + #smear+ symptom+ stay
-    pop$tb_s*p$a_p_m*p$p_m + #smear status progresses
-    pop$tb_m*p$a_p_s*p$p_s  #symptom status progresses
-  sp_cure <- pop$sp_cure*(1-(p$p_c + p$m_ac)) + #spontaneous cure stay
-    pop$tb*p$c_sp #spontaneous cures
-  tx_cure <- pop$tx_cure*(1-p$m_ac) + #treated cured stay
-    pop$tb_s*p$c_tx + #symptom+ smear- treated
-    pop$tb_ms*p$a_tx*p$c_tx #symptom+ smear+ treated
-  died_tb <- pop$died_tb + #dead stay
-    pop$tb_s*p$m_tb + #symptom+ smear- die of TB
-    pop$tb_ms*p$a_m*p$m_tb #symptom+ smear+ died of TB
-  died_nontb <- pop$died_nontb + #dead stay 
-    (pop$tb + pop$tb_m + pop$tb_s + pop$tb_ms + pop$sp_cure + pop$tx_cure)*p$m_ac #non-TB deaths from all states
-  rel_inf <- p$i*pop$tb + p$i_s*pop$tb_s + p$i_m*pop$tb_m + p$i_ms*pop$tb_ms
-  curr_pop <- c("t"=t,
-                "tb"=tb,
-                "tb_m"=tb_m,
-                "tb_s"=tb_s,
-                "tb_ms"=tb_ms,
-                "sp_cure"=sp_cure,
-                "tx_cure"=tx_cure,
-                "died_tb"=died_tb,
-                "died_nontb"=died_nontb,
-                "rel_inf"=rel_inf)
-  return(curr_pop)
-} 
 
 #MICROSIM MODEL FUNCTIONS
 #1=tb (smear- symptom-)
@@ -176,6 +129,7 @@ micro_sample <- function(p, n, t) {
   )
   return(rands)
 }
+
 #function to run model for a single timestep - individual-level version
 nat_hist_micro <- function(pop, r, p)  { #sim_pop row, random numbers subset, params
   curr_pop <- (pop==1)*(
@@ -214,12 +168,6 @@ nat_hist_micro <- function(pop, r, p)  { #sim_pop row, random numbers subset, pa
     if_else(p$inflows==1, 1, 7)*(pop==7) + if_else(p$inflows==1, 1, 8)*(pop==8) #all deaths re-enter the model as inflows on the next timestep
   return(curr_pop)
 }
-#function to track TB deaths and relative infections
-micro_outcomes <- function(p, pop) {
-  rel_inf <- p$i*sum(pop==1) + p$i_m*sum(pop==2) + p$i_s*sum(pop==3) + p$i_ms*sum(pop==4)
-  return(rel_inf)
-}
-#may be able to remove deaths from non-TB compartments to improve performance - unless we need to track # in spontaneously cured, etc.
 
 #CLEANING FUNCTIONS (apply to both markov and individual versions)
 process_output <- function(sim_pop) {
@@ -235,7 +183,6 @@ process_output <- function(sim_pop) {
   sim_pop_long <- sim_pop_long %>% group_by(t) %>% 
     mutate(value_scale=case_when(outcome %in% alive_states~value/sum(value[outcome %in% alive_states]), #calculate as % of those still alive in time step
                                  outcome %in% c("died_tb", "died_nontb")~value)) #already cumulative
-  sim_pop_long <- sim_pop_long %>% ungroup() %>% mutate(value_scale=if_else(outcome=="rel_inf", cumsum(value), value_scale))
   sim_pop_long <- sim_pop_long %>% group_by(t) %>% 
     mutate(prop_tb=if_else(outcome %in% tb_states, value/sum(value[outcome %in% tb_states]), 0))  
 }

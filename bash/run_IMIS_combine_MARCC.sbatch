@@ -5,8 +5,6 @@
 #SBATCH --time=4:00:00
 #SBATCH -p defq
 #SBATCH --ntasks=1
-##SBATCH --mem=10000
-##SBATCH --mem-per-cpu=4000
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=tryckma1@jhmi.edu
 
@@ -24,5 +22,5 @@ ml r/4.0.2
 echo "ml r successful"
 
 export country="Cambodia" 
-export analysis="smearnotif50"
+export analysis="base"
 Rscript --vanilla code/IMIS_combine_MARCC.R

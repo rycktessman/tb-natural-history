@@ -1,10 +1,10 @@
-#combine multiple calibration runs - including output (update since v2) - from MARCC
+#combine multiple calibration runs from MARCC
 library(dplyr)
 library(matrixStats)
 library(lhs)
 
-country <- as.character(Sys.getenv('country'))
-analysis <- as.character(Sys.getenv('analysis'))
+country <- as.character(Sys.getenv('country')) #country from IMIS_run_MARCC
+analysis <- as.character(Sys.getenv('analysis')) #path from IMIS_run_MARCC
 print(country)
 print(analysis)
 

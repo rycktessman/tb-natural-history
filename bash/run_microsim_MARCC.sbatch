@@ -2,6 +2,7 @@
 
 #SBATCH --output=R.%A_%a.out
 #SBATCH --error=R.%A_%a.err 
+#SBATCH --array=1-1000
 #SBATCH --time=2:00:00
 #SBATCH -p defq
 #SBATCH --ntasks=1
@@ -21,7 +22,6 @@ echo "ml gcc successful"
 ml r/4.0.2
 echo "ml r successful"
 
-export country="Bangladesh"
-export analysis="base"
-export start_pop=4
-Rscript --vanilla code/microsim_combine_MARCC.R
+export country="Nepal"
+export start_pop=1
+Rscript --vanilla code/microsim_run_MARCC.R
