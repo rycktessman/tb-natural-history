@@ -4,7 +4,7 @@ TB natural history model
 The files in this GitHub repository include data, R scripts, and bash scripts that are used to calibrate a model of TB natural, simulate individuals' TB trajectories, and estimate their contribution to TB transmission. 
 The repository is organized as follows:
 
-**base folder:**
+**bash folder:**
 The model code is written in R, but we used a high-performance computing cluster housed at a shared computing facility called MARCC (Maryland Advanced Research Computing Center) to run the analyses. 
 
 This folder contains the bash scripts we used to submit jobs/run the model code on the server. They include (in the following order):
