@@ -19,6 +19,7 @@ This folder contains the bash scripts we used to submit jobs/run the model code 
 
 **code folder:**
 Contains all the R scripts used to run the model. The approximate order to run them is:
+
 -IMIS_run_MARCC.R: calibration script. Runs a single chain of IMIS for a specified country and analysis. This script has been written to run on the server, but manually entering a "chain" and "country" in lines 9-10 will allow it to be run on a desktop/similar. Lines 15-21 determine which analysis (e.g. main analysis or sensitivity analyses) will be run. 
 
 -IMIS_combine_MARCC.R: calibration script. This script combines output from all 50 IMIS chains for a specified country and analysis. It has been written to run on the server.
@@ -37,6 +38,7 @@ Two scripts with functions that are used in the other scripts are also included:
 
 **data folder:**
 Contains Rda files that are used to run the model. These include:
+
 -targets_bangladesh.Rda, targets_cambodia.Rda, targets_nepal.Rda, targets_philippines.Rda, targets_vietnam.Rda: calibration targets for each country, including means and 95% CIs for each target, plus empirical distributions for the mortality-to-prevalence ratio target and the % of true TB notifications that are smear-positive (or would be if tested) target. 
 
 -params_all.Rda: parameter info for all countries, including non-calibrated model parameters and lower/upper bounds for the uniform prior distributions for each calibrated parameter
