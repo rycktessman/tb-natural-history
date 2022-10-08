@@ -699,36 +699,15 @@ for(i in countries) {
                           times_sub_state$inf_s*times_sub_1$X3 + 
                           times_sub_state$inf_ms*times_sub_1$X4)
     if(j!=1) {
-      rel_inf_mu <- wtd.mean(x=(times_sub_state$inf*times_sub_state$X1 + 
-                                  times_sub_state$inf_m*times_sub_state$X2 + 
-                                  times_sub_state$inf_s*times_sub_state$X3 + 
-                                  times_sub_state$inf_ms*times_sub_state$X4)/
-                               (times_sub_state$inf*times_sub_1$X1 + 
-                                  times_sub_state$inf_m*times_sub_1$X2 + 
-                                  times_sub_state$inf_s*times_sub_1$X3 + 
-                                  times_sub_state$inf_ms*times_sub_1$X4),
+      rel_inf_mu <- wtd.mean(x=rel_inf_all,
                              weight=times_sub_state$weight)
       
-      rel_inf_lb <- wtd.quantile(x=(times_sub_state$inf*times_sub_state$X1 + 
-                                      times_sub_state$inf_m*times_sub_state$X2 + 
-                                      times_sub_state$inf_s*times_sub_state$X3 + 
-                                      times_sub_state$inf_ms*times_sub_state$X4)/
-                                   (times_sub_state$inf*times_sub_1$X1 + 
-                                      times_sub_state$inf_m*times_sub_1$X2 + 
-                                      times_sub_state$inf_s*times_sub_1$X3 + 
-                                      times_sub_state$inf_ms*times_sub_1$X4),
+      rel_inf_lb <- wtd.quantile(x=rel_inf_all,
                                  probs=0.025,
                                  weight=times_sub_state$weight,
                                  normwt=T)[[1]]
       
-      rel_inf_ub <- wtd.quantile(x=(times_sub_state$inf*times_sub_state$X1 + 
-                                      times_sub_state$inf_m*times_sub_state$X2 + 
-                                      times_sub_state$inf_s*times_sub_state$X3 + 
-                                      times_sub_state$inf_ms*times_sub_state$X4)/
-                                   (times_sub_state$inf*times_sub_1$X1 + 
-                                      times_sub_state$inf_m*times_sub_1$X2 + 
-                                      times_sub_state$inf_s*times_sub_1$X3 + 
-                                      times_sub_state$inf_ms*times_sub_1$X4),
+      rel_inf_ub <- wtd.quantile(x=rel_inf_all,
                                  probs=0.975,
                                  weight=times_sub_state$weight,
                                  normwt=T)[[1]]
@@ -825,36 +804,15 @@ for(i in countries) {
        times_sub_state$inf_s*times_sub_4$X3 + 
        times_sub_state$inf_ms*times_sub_4$X4)
   
-  rel_inf_mu <- wtd.mean(x=(times_sub_state$inf*times_sub_2$X1 + 
-                              times_sub_state$inf_m*times_sub_2$X2 + 
-                              times_sub_state$inf_s*times_sub_2$X3 + 
-                              times_sub_state$inf_ms*times_sub_2$X4)/
-                           (times_sub_state$inf*times_sub_4$X1 + 
-                              times_sub_state$inf_m*times_sub_4$X2 + 
-                              times_sub_state$inf_s*times_sub_4$X3 + 
-                              times_sub_state$inf_ms*times_sub_4$X4),
+  rel_inf_mu <- wtd.mean(x=rel_smear_samples,
                          weight=times_sub_2$weight)
   
-  rel_inf_lb <- wtd.quantile(x=(times_sub_state$inf*times_sub_2$X1 + 
-                                  times_sub_state$inf_m*times_sub_2$X2 + 
-                                  times_sub_state$inf_s*times_sub_2$X3 + 
-                                  times_sub_state$inf_ms*times_sub_2$X4)/
-                               (times_sub_state$inf*times_sub_4$X1 + 
-                                  times_sub_state$inf_m*times_sub_4$X2 + 
-                                  times_sub_state$inf_s*times_sub_4$X3 + 
-                                  times_sub_state$inf_ms*times_sub_4$X4),
+  rel_inf_lb <- wtd.quantile(x=rel_smear_samples,
                              probs=0.025,
                              weight=times_sub_2$weight,
                              normwt=T)[[1]]
   
-  rel_inf_ub <- wtd.quantile(x=(times_sub_state$inf*times_sub_2$X1 + 
-                                  times_sub_state$inf_m*times_sub_2$X2 + 
-                                  times_sub_state$inf_s*times_sub_2$X3 + 
-                                  times_sub_state$inf_ms*times_sub_2$X4)/
-                               (times_sub_state$inf*times_sub_4$X1 + 
-                                  times_sub_state$inf_m*times_sub_4$X2 + 
-                                  times_sub_state$inf_s*times_sub_4$X3 + 
-                                  times_sub_state$inf_ms*times_sub_4$X4),
+  rel_inf_ub <- wtd.quantile(x=rel_smear_samples,
                              probs=0.975,
                              weight=times_sub_2$weight,
                              normwt=T)[[1]]
