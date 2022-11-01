@@ -2,6 +2,7 @@
 TB natural history model
 
 The files in this GitHub repository include data, R scripts, and bash scripts that are used to calibrate a model of TB natural, simulate individuals' TB trajectories, and estimate their contribution to TB transmission. 
+A preprint of the paper is available at: https://doi.org/10.1101/2022.06.27.22276965
 The repository is organized as follows:
 
 **bash folder:**
@@ -44,3 +45,10 @@ Contains Rda files that are used to run the model. These include:
 -params_all.Rda: parameter info for all countries, including non-calibrated model parameters and lower/upper bounds for the uniform prior distributions for each calibrated parameter
 
 -mort_to_prev_ihme.Rda: estimates of the mortality-to-prevalence target for all countries used in the sensitivity analysis in which we used IHME estimates of TB deaths (https://vizhub.healthdata.org/gbd-results/) instead of WHO estimates. 
+
+**output folder:**
+Contains the full sets of posterior parameters for each country from the main/base case calibration. 
+
+Also includes a file with summary statistics from the main calibration (posterior_summary.csv)
+
+The parameter labels correspond to the appendix model diagram in the paper (Figure S1)
